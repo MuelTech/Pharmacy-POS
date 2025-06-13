@@ -8,4 +8,4 @@ This system is currently **under development**. Features and functionality may c
 
 ---
 
-**© 2024 Pharmacy Management System - Under Development** 
+**© 2025 Pharmacy Management System - Under Development** 
