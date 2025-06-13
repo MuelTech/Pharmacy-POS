@@ -1,0 +1,18 @@
+{
+  "name": "pharmacy-system",
+  "version": "1.0.0",
+  "description": "Pharmacy Management System with Electron, React, and Express",
+  "scripts": {
+    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\" \"npm run start:electron\"",
+    "start:frontend": "cd frontend && npm run dev",
+    "start:backend": "cd backend && npm run dev",
+    "start:electron": "cd electron && npm run dev",
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../electron && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "dependencies": {
+    "react-to-print": "^3.1.0"
+  }
+}
