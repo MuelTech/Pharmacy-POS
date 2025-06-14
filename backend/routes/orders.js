@@ -14,6 +14,8 @@ router.post('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
     const { orderItems, discount = false, paymentData } = req.body;
     const accountId = req.user.account_id;
     
+    console.log('Order creation request:', { orderItems, discount, paymentData, accountId });
+    
     if (!orderItems || orderItems.length === 0) {
       return res.status(400).json({
         success: false,
@@ -21,8 +23,19 @@ router.post('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
       });
     }
     
+    // Validate account exists
+    const [accountCheck] = await connection.execute(`
+      SELECT account_id FROM accounts WHERE account_id = ?
+    `, [accountId]);
+    
+    if (accountCheck.length === 0) {
+      throw new Error('Invalid account ID');
+    }
+    
     // Calculate totals and validate stock
     let subtotal = 0;
+    const validatedItems = [];
+    
     for (const item of orderItems) {
       // Verify product exists and has sufficient stock
       const [productCheck] = await connection.execute(`
@@ -42,7 +55,15 @@ router.post('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
         throw new Error(`Insufficient stock for ${productCheck[0].drug_name}. Available: ${productCheck[0].stock_level}`);
       }
       
-      subtotal += productCheck[0].base_price * item.quantity;
+      const itemSubtotal = productCheck[0].base_price * item.quantity;
+      subtotal += itemSubtotal;
+      
+      validatedItems.push({
+        ...item,
+        inventory_id: productCheck[0].inventory_id,
+        unit_price: productCheck[0].base_price,
+        drug_name: productCheck[0].drug_name
+      });
     }
     
     // Apply discount logic (20% if applicable)
@@ -53,54 +74,68 @@ router.post('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
     const taxRate = 0.12;
     const totalAmount = discountedSubtotal * (1 + taxRate);
     
-    // Create order
+    console.log('Calculated totals:', { subtotal, discountAmount, totalAmount });
+    
+    // Create order - ensure proper data types
     const [orderResult] = await connection.execute(`
       INSERT INTO orders (account_id, order_date, discount, total_amount) 
       VALUES (?, NOW(), ?, ?)
-    `, [accountId, discountAmount, totalAmount]);
+    `, [
+      parseInt(accountId), 
+      parseFloat(discountAmount.toFixed(2)), 
+      parseFloat(totalAmount.toFixed(2))
+    ]);
     
     const orderId = orderResult.insertId;
+    console.log('Order created with ID:', orderId);
+    
+    if (!orderId) {
+      throw new Error('Failed to create order - no order ID returned');
+    }
     
     // Create order details and update inventory
-    for (const item of orderItems) {
-      // Get the best inventory item (earliest expiry) for this drug
-      const [inventoryData] = await connection.execute(`
-        SELECT i.inventory_id, i.stock_level, m.base_price, m.drug_name
-        FROM inventory i 
-        JOIN medicines m ON i.drug_id = m.drug_id 
-        WHERE m.drug_id = ? AND i.stock_level >= ?
-        ORDER BY i.expiry_date ASC
-        LIMIT 1
-      `, [item.drug_id, item.quantity]);
-      
-      if (inventoryData.length === 0) {
-        throw new Error(`Unable to allocate inventory for ${item.drug_name || 'product'}`);
-      }
-      
-      const inventoryId = inventoryData[0].inventory_id;
-      const unitPrice = inventoryData[0].base_price;
-      
+    for (const item of validatedItems) {
       // Validate all parameters before insertion
-      if (!inventoryId || !item.quantity || !orderId || !unitPrice) {
-        throw new Error(`Invalid parameters for order detail: inventory_id=${inventoryId}, quantity=${item.quantity}, order_id=${orderId}, unit_price=${unitPrice}`);
+      const inventoryId = parseInt(item.inventory_id);
+      const quantity = parseInt(item.quantity);
+      const unitPrice = parseFloat(item.unit_price);
+      
+      if (!inventoryId || !quantity || !orderId || !unitPrice || quantity <= 0 || unitPrice <= 0) {
+        throw new Error(`Invalid parameters for order detail: inventory_id=${inventoryId}, quantity=${quantity}, order_id=${orderId}, unit_price=${unitPrice}`);
       }
+      
+      console.log('Inserting order detail:', { inventoryId, quantity, orderId, unitPrice });
       
       // Add order detail to order_details table
-      await connection.execute(`
+      const [orderDetailResult] = await connection.execute(`
         INSERT INTO order_details (inventory_id, quantity, order_id, unit_price) 
         VALUES (?, ?, ?, ?)
-      `, [inventoryId, parseInt(item.quantity), orderId, parseFloat(unitPrice)]);
+      `, [inventoryId, quantity, orderId, unitPrice]);
+      
+      if (!orderDetailResult.insertId) {
+        throw new Error(`Failed to insert order detail for inventory ID ${inventoryId}`);
+      }
+      
+      console.log('Order detail created with ID:', orderDetailResult.insertId);
       
       // Update inventory stock
-      await connection.execute(`
+      const [updateResult] = await connection.execute(`
         UPDATE inventory 
         SET stock_level = stock_level - ? 
         WHERE inventory_id = ?
-      `, [parseInt(item.quantity), inventoryId]);
+      `, [quantity, inventoryId]);
+      
+      if (updateResult.affectedRows === 0) {
+        throw new Error(`Failed to update inventory for inventory ID ${inventoryId}`);
+      }
+      
+      console.log(`Updated inventory ${inventoryId}, reduced stock by ${quantity}`);
     }
     
     // Insert payment record if payment data is provided
     if (paymentData) {
+      console.log('Processing payment data:', paymentData);
+      
       // Validate payment data
       const paidAmount = parseFloat(paymentData.paid || paymentData.total || totalAmount);
       const changeAmount = parseFloat(paymentData.change || 0);
@@ -130,19 +165,27 @@ router.post('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
             INSERT INTO payment_types (payment_type) VALUES (?)
           `, [paymentData.paymentType]);
           paymentTypeId = insertResult.insertId;
+          console.log('Created new payment type:', paymentData.paymentType, 'with ID:', paymentTypeId);
         }
       }
       
+      console.log('Inserting payment:', { orderId, paymentTypeId, paidAmount, changeAmount });
+      
       // Insert payment record
-      await connection.execute(`
+      const [paymentResult] = await connection.execute(`
         INSERT INTO payments (order_id, payment_type_id, amount_paid, change_amount) 
         VALUES (?, ?, ?, ?)
-      `, [orderId, paymentTypeId, paidAmount, changeAmount]);
+      `, [orderId, paymentTypeId, parseFloat(paidAmount.toFixed(2)), parseFloat(changeAmount.toFixed(2))]);
+      
+      if (!paymentResult.insertId && paymentResult.affectedRows === 0) {
+        throw new Error('Failed to insert payment record');
+      }
       
       console.log(`Payment recorded: Order ${orderId}, Amount ${paidAmount}, Change ${changeAmount}, Type ${paymentData.paymentType}`);
     }
     
     await connection.commit();
+    console.log('Transaction committed successfully');
     
     // Get pharmacist name for receipt
     const [pharmacistData] = await connection.execute(`
@@ -169,6 +212,8 @@ router.post('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
       paymentData: paymentData || {}
     };
     
+    console.log('Order creation successful, returning receipt data');
+    
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
@@ -178,6 +223,7 @@ router.post('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
   } catch (error) {
     await connection.rollback();
     console.error('Order creation error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: error.message || 'Failed to create order'
