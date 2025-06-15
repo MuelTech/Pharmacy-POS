@@ -6,58 +6,49 @@ const { verifyToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Get all accounts and pharmacists (Admin only)
+// Get all accounts with pharmacist information (Admin only)
 router.get('/', verifyToken, requireAdmin, async (req, res) => {
   try {
-    // Get accounts
-    const accountsQuery = `
+    const query = `
       SELECT 
-        account_id,
-        username,
-        role,
-        is_active,
-        created_at,
-        updated_at,
-        last_login
-      FROM accounts 
-      ORDER BY created_at DESC
+        a.account_id,
+        a.username,
+        a.role,
+        a.is_active,
+        a.created_at,
+        a.updated_at,
+        a.last_login,
+        p.pharmacist_id,
+        p.first_name,
+        p.last_name,
+        p.phone_number,
+        p.email,
+        p.license_number,
+        CONCAT(p.first_name, ' ', p.last_name) as full_name
+      FROM accounts a
+      LEFT JOIN pharmacists p ON a.pharmacist_id = p.pharmacist_id
+      ORDER BY a.created_at DESC
     `;
     
-    // Get pharmacists
-    const pharmacistsQuery = `
-      SELECT 
-        pharmacist_id,
-        first_name,
-        last_name,
-        phone_number,
-        email,
-        license_number
-      FROM pharmacists
-      ORDER BY pharmacist_id DESC
-    `;
+    const [rows] = await pool.execute(query);
     
-    const [accountRows] = await pool.execute(accountsQuery);
-    const [pharmacistRows] = await pool.execute(pharmacistsQuery);
-    
-    // Combine accounts with pharmacists (assuming one-to-one relationship by order)
-    const accounts = accountRows.map((account, index) => {
-      const pharmacist = pharmacistRows[index] || {};
-      return {
-        id: account.account_id,
-        username: account.username,
-        role: account.role,
-        isActive: Boolean(account.is_active),
-        createdAt: account.created_at,
-        updatedAt: account.updated_at,
-        lastLogin: account.last_login || 'Never',
-        firstName: pharmacist.first_name || '',
-        lastName: pharmacist.last_name || '',
-        phoneNumber: pharmacist.phone_number || '',
-        email: pharmacist.email || '',
-        licenseNumber: pharmacist.license_number || '',
-        pharmacistId: pharmacist.pharmacist_id
-      };
-    });
+    // Format the response data
+    const accounts = rows.map(account => ({
+      id: account.account_id,
+      username: account.username,
+      role: account.role,
+      isActive: Boolean(account.is_active),
+      createdAt: account.created_at,
+      updatedAt: account.updated_at,
+      lastLogin: account.last_login || 'Never',
+      firstName: account.first_name || '',
+      lastName: account.last_name || '',
+      phoneNumber: account.phone_number || '',
+      email: account.email || '',
+      licenseNumber: account.license_number || '',
+      fullName: account.full_name || '',
+      pharmacistId: account.pharmacist_id
+    }));
     
     res.json({
       success: true,
@@ -78,41 +69,36 @@ router.get('/:id', verifyToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
-    // Get account
-    const accountQuery = `
+    const query = `
       SELECT 
-        account_id,
-        username,
-        role,
-        is_active,
-        created_at,
-        updated_at,
-        last_login
-      FROM accounts 
-      WHERE account_id = ?
+        a.account_id,
+        a.username,
+        a.role,
+        a.is_active,
+        a.created_at,
+        a.updated_at,
+        a.last_login,
+        p.pharmacist_id,
+        p.first_name,
+        p.last_name,
+        p.phone_number,
+        p.email,
+        p.license_number
+      FROM accounts a
+      LEFT JOIN pharmacists p ON a.pharmacist_id = p.pharmacist_id
+      WHERE a.account_id = ?
     `;
     
-    const [accountRows] = await pool.execute(accountQuery, [id]);
+    const [rows] = await pool.execute(query, [id]);
     
-    if (accountRows.length === 0) {
+    if (rows.length === 0) {
       return res.status(404).json({
         success: false,
         message: 'Account not found'
       });
     }
     
-    // Find corresponding pharmacist by position
-    const [allAccounts] = await pool.execute(
-      'SELECT account_id FROM accounts ORDER BY created_at DESC'
-    );
-    const [allPharmacists] = await pool.execute(
-      'SELECT * FROM pharmacists ORDER BY pharmacist_id DESC'
-    );
-    
-    const accountIndex = allAccounts.findIndex(acc => acc.account_id === parseInt(id));
-    const pharmacist = allPharmacists[accountIndex] || {};
-    
-    const account = accountRows[0];
+    const account = rows[0];
     
     res.json({
       success: true,
@@ -124,11 +110,11 @@ router.get('/:id', verifyToken, requireAdmin, async (req, res) => {
         createdAt: account.created_at,
         updatedAt: account.updated_at,
         lastLogin: account.last_login || 'Never',
-        firstName: pharmacist.first_name || '',
-        lastName: pharmacist.last_name || '',
-        phoneNumber: pharmacist.phone_number || '',
-        email: pharmacist.email || '',
-        licenseNumber: pharmacist.license_number || ''
+        firstName: account.first_name || '',
+        lastName: account.last_name || '',
+        phoneNumber: account.phone_number || '',
+        email: account.email || '',
+        licenseNumber: account.license_number || ''
       }
     });
     
@@ -246,10 +232,10 @@ router.post('/',
           [firstName, lastName, phoneNumber, email, licenseNumber]
         );
 
-        // Insert account (without pharmacist_id since there's no foreign key relationship)
+        // Insert account with pharmacist_id foreign key
         const [accountResult] = await connection.execute(
-          'INSERT INTO accounts (username, password, is_active, role, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())',
-          [username, hashedPassword, isActive ? 1 : 0, role]
+          'INSERT INTO accounts (username, password, pharmacist_id, is_active, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())',
+          [username, hashedPassword, pharmacistResult.insertId, isActive ? 1 : 0, role]
         );
 
         await connection.commit();
@@ -358,9 +344,9 @@ router.put('/:id',
       await connection.beginTransaction();
 
       try {
-        // Check if account exists
+        // Check if account exists and get pharmacist_id
         const [existingAccount] = await connection.execute(
-          'SELECT account_id, username FROM accounts WHERE account_id = ?',
+          'SELECT account_id, pharmacist_id, username FROM accounts WHERE account_id = ?',
           [id]
         );
 
@@ -374,21 +360,9 @@ router.put('/:id',
         }
 
         const currentAccount = existingAccount[0];
+        const pharmacistId = currentAccount.pharmacist_id;
         
-        // Find the corresponding pharmacist (by order/position since no FK relationship)
-        const [allPharmacists] = await connection.execute(
-          'SELECT pharmacist_id, email FROM pharmacists ORDER BY pharmacist_id DESC'
-        );
-        
-        // Get the pharmacist at the same position as the account
-        const [allAccounts] = await connection.execute(
-          'SELECT account_id FROM accounts ORDER BY created_at DESC'
-        );
-        
-        const accountIndex = allAccounts.findIndex(acc => acc.account_id === parseInt(id));
-        const pharmacistToUpdate = allPharmacists[accountIndex];
-        
-        if (!pharmacistToUpdate) {
+        if (!pharmacistId) {
           await connection.rollback();
           connection.release();
           return res.status(404).json({
@@ -417,7 +391,7 @@ router.put('/:id',
         // Check if email is being changed and if new email already exists
         const [emailCheck] = await connection.execute(
           'SELECT pharmacist_id FROM pharmacists WHERE email = ? AND pharmacist_id != ?',
-          [email, pharmacistToUpdate.pharmacist_id]
+          [email, pharmacistId]
         );
 
         if (emailCheck.length > 0) {
@@ -432,7 +406,7 @@ router.put('/:id',
         // Update pharmacist information
         await connection.execute(
           'UPDATE pharmacists SET first_name = ?, last_name = ?, phone_number = ?, email = ?, license_number = ? WHERE pharmacist_id = ?',
-          [firstName, lastName, phoneNumber, email, licenseNumber, pharmacistToUpdate.pharmacist_id]
+          [firstName, lastName, phoneNumber, email, licenseNumber, pharmacistId]
         );
 
         // Prepare account update query
