@@ -636,8 +636,6 @@ const AdminDashboard = () => {
       <ManageProduct 
         isVisible={showManageProduct} 
         onClose={() => setShowManageProduct(false)} 
-        products={products}
-        setProducts={setProducts}
       />
 
       {/* Add InventoryModal */}

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './ManageProduct.css';
+import { productsAPI } from '../../services/api';
 
-const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
+const ManageProduct = ({ isVisible, onClose }) => {
   // Form state
   const [formData, setFormData] = useState({
     drug_name: '',
@@ -9,9 +10,15 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
     form: '',
     manufacturer: '',
     base_price: '',
-    category: '',
+    category_id: '',
     image_path: ''
   });
+
+  // Categories and products state
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   // Edit mode state
   const [isEditMode, setIsEditMode] = useState(false);
@@ -25,6 +32,38 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Fetch data when component mounts
+  useEffect(() => {
+    if (isVisible) {
+      fetchCategories();
+      fetchProducts();
+    }
+  }, [isVisible]);
+
+  const fetchCategories = async () => {
+    try {
+      const response = await productsAPI.getCategories();
+      if (response.data.success) {
+        setCategories(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error);
+      setError('Failed to load categories');
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      const response = await productsAPI.getAll();
+      if (response.data.success) {
+        setProducts(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch products:', error);
+      setError('Failed to load products');
+    }
+  };
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -34,46 +73,59 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
     }));
   };
 
-  // Handle form submission (UI-only)
-  const handleSubmit = (e) => {
+  // Handle form submission with API calls
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
+    setError('');
     
-    // Reset form first to prevent input issues
-    const currentFormData = { ...formData };
-    
-    if (isEditMode) {
-      // Update existing product
-      setProducts(prevProducts => 
-        prevProducts.map(product => 
-          product.id === editingProductId 
-            ? { ...product, ...currentFormData, base_price: `PHP ${currentFormData.base_price}` }
-            : product
-        )
-      );
-      console.log('Updating product (UI-only):', currentFormData);
-      setSuccessMessage('Product updated successfully!');
-      setIsEditMode(false);
-      setEditingProductId(null);
-    } else {
-      // Add new product
-      const newProduct = {
-        id: Date.now(), // Simple ID generation for demo
-        ...currentFormData,
-        base_price: `PHP ${currentFormData.base_price}`
+    try {
+      const medicineData = {
+        drug_name: formData.drug_name,
+        dosage: formData.dosage,
+        form: formData.form,
+        manufacturer: formData.manufacturer,
+        base_price: parseFloat(formData.base_price),
+        category_id: parseInt(formData.category_id),
+        image_path: formData.image_path || ''
       };
-      setProducts(prevProducts => [...prevProducts, newProduct]);
-      console.log('Adding product (UI-only):', currentFormData);
-      setSuccessMessage('Product added successfully!');
+      
+      let response;
+      if (isEditMode) {
+        // Update existing medicine
+        response = await productsAPI.update(editingProductId, medicineData);
+        if (response.data.success) {
+          setSuccessMessage('Medicine updated successfully!');
+          setIsEditMode(false);
+          setEditingProductId(null);
+          // Refresh products list from API
+          await fetchProducts();
+        }
+      } else {
+        // Create new medicine
+        response = await productsAPI.create(medicineData);
+        if (response.data.success) {
+          setSuccessMessage('Medicine added successfully!');
+          // Refresh products list from API
+          await fetchProducts();
+        }
+      }
+      
+      // Clear form and show success popup
+      clearForm();
+      setShowSuccessPopup(true);
+      
+      // Auto-hide success popup after 3 seconds
+      setTimeout(() => {
+        setShowSuccessPopup(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error saving medicine:', error);
+      setError(error.response?.data?.message || 'Failed to save medicine. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-    
-    // Clear form and show success popup
-    clearForm();
-    setShowSuccessPopup(true);
-    
-    // Auto-hide success popup after 3 seconds
-    setTimeout(() => {
-      setShowSuccessPopup(false);
-    }, 3000);
   };
 
   // Format price input
@@ -111,26 +163,27 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
       form: '',
       manufacturer: '',
       base_price: '',
-      category: '',
+      category_id: '',
       image_path: ''
     });
     setIsEditMode(false);
     setEditingProductId(null);
+    setError('');
   };
 
   // Handle edit button click
   const handleEdit = (product) => {
     setFormData({
-      drug_name: product.drug_name,
-      dosage: product.dosage,
-      form: product.form,
-      manufacturer: product.manufacturer,
-      base_price: product.base_price.replace('PHP ', ''), // Remove PHP prefix for editing
-      category: product.category,
-      image_path: product.image_path
+      drug_name: product.drug_name || '',
+      dosage: product.dosage || '',
+      form: product.form || '',
+      manufacturer: product.manufacturer || '',
+      base_price: (product.base_price || '').toString(), // Convert to string for input with fallback
+      category_id: (product.category_id || '').toString(),
+      image_path: product.image_path || ''
     });
     setIsEditMode(true);
-    setEditingProductId(product.id);
+    setEditingProductId(product.drug_id);
 
     // Auto-scroll to form section
     setTimeout(() => {
@@ -152,13 +205,33 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
   };
 
   // Confirm delete action
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (productToDelete) {
-      setProducts(prevProducts => prevProducts.filter(product => product.id !== productToDelete.id));
-      
-      // If we're currently editing this product, clear the form
-      if (editingProductId === productToDelete.id) {
-        clearForm();
+      setIsLoading(true);
+      try {
+        const response = await productsAPI.delete(productToDelete.drug_id);
+        if (response.data.success) {
+          // If we're currently editing this product, clear the form
+          if (editingProductId === productToDelete.drug_id) {
+            clearForm();
+          }
+          
+          setSuccessMessage('Medicine deleted successfully!');
+          setShowSuccessPopup(true);
+          
+          // Refresh products list from API
+          await fetchProducts();
+          
+          // Auto-hide success popup after 3 seconds
+          setTimeout(() => {
+            setShowSuccessPopup(false);
+          }, 3000);
+        }
+      } catch (error) {
+        console.error('Error deleting medicine:', error);
+        setError(error.response?.data?.message || 'Failed to delete medicine. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
       
       setShowDeleteConfirm(false);
@@ -188,6 +261,18 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
           {/* Input Form Section */}
           <div className="form-section">
             <h3>{isEditMode ? 'Edit Product' : 'Add Product'}</h3>
+            {error && (
+              <div className="error-message" style={{
+                background: '#fee',
+                color: '#c33',
+                padding: '10px',
+                borderRadius: '4px',
+                marginBottom: '15px',
+                border: '1px solid #fcc'
+              }}>
+                {error}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="product-form">
               <div className="form-row">
                 <div className="form-group">
@@ -322,20 +407,20 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label htmlFor="category">Category *</label>
+                  <label htmlFor="category_id">Category *</label>
                   <select
-                    id="category"
-                    name="category"
-                    value={formData.category}
+                    id="category_id"
+                    name="category_id"
+                    value={formData.category_id}
                     onChange={handleInputChange}
                     required
                   >
                     <option value="">Select category</option>
-                    <option value="Cardiovascular">Cardiovascular</option>
-                    <option value="Antiseptic">Antiseptic</option>
-                    <option value="Muscle Relaxant">Muscle Relaxant</option>
-                    <option value="Immunosuppressant">Immunosuppressant</option>
-                    <option value="Analgesic">Analgesic</option>
+                    {categories.map((category, index) => (
+                      <option key={`category-${category.category_id}-${index}`} value={category.category_id}>
+                        {category.category_name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -371,10 +456,10 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
               </div>
 
               <div className="form-actions">
-                <button type="submit" className="add-btn">
-                  {isEditMode ? 'Update Product' : 'Add Product'}
+                <button type="submit" className="add-btn" disabled={isLoading}>
+                  {isLoading ? 'Saving...' : (isEditMode ? 'Update Product' : 'Add Product')}
                 </button>
-                <button type="button" className="clear-btn" onClick={clearForm}>
+                <button type="button" className="clear-btn" onClick={clearForm} disabled={isLoading}>
                   {isEditMode ? 'Cancel Edit' : 'Clear Form'}
                 </button>
               </div>
@@ -405,8 +490,8 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((product) => (
-                    <tr key={product.id}>
+                  {products.map((product, index) => (
+                    <tr key={`product-${product.drug_id || index}`}>
                       <td>
                         <div className="product-name">{product.drug_name}</div>
                       </td>
@@ -423,7 +508,7 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
                         </div>
                       </td>
                       <td>
-                        <div className="product-price">{product.base_price}</div>
+                        <div className="product-price">₱{product.base_price}</div>
                       </td>
                       <td>
                         <div style={{ 
@@ -432,12 +517,12 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
                           wordWrap: 'break-word',
                           lineHeight: '1.3'
                         }}>
-                          {product.category}
+                          {product.category_name || 'N/A'}
                         </div>
                       </td>
                       <td>
                         <div className="image-path" title={product.image_path}>
-                          {product.image_path}
+                          {product.image_path || 'No image'}
                         </div>
                       </td>
                       <td>
@@ -446,6 +531,7 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
                             className="edit-btn"
                             onClick={() => handleEdit(product)}
                             title="Edit Product"
+                            disabled={isLoading}
                           >
                             ✏️
                           </button>
@@ -453,6 +539,7 @@ const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
                             className="delete-btn"
                             onClick={() => handleDelete(product)}
                             title="Delete Product"
+                            disabled={isLoading}
                           >
                             🗑️
                           </button>

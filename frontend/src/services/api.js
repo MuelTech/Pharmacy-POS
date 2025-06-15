@@ -54,6 +54,9 @@ export const productsAPI = {
   getAll: (params = {}) => api.get('/products', { params }),
   getById: (id) => api.get(`/products/${id}`),
   getCategories: () => api.get('/products/categories'),
+  create: (productData) => api.post('/products', productData),
+  update: (id, productData) => api.put(`/products/${id}`, productData),
+  delete: (id) => api.delete(`/products/${id}`),
 };
 
 // Orders API endpoints
