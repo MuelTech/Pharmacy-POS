@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ManageProduct from './ManageProduct';
 import InventoryModal from './InventoryModal';
 import ManageAccount from './ManageAccount';
+import { ordersAPI } from '../../services/api';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import './AdminDashboard.css';
@@ -12,9 +13,15 @@ const AdminDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   
-  // State for date filters
-  const [startDate, setStartDate] = useState('2023-12-01');
-  const [endDate, setEndDate] = useState('2023-12-31');
+  // State for date filters - default to current month
+  const [startDate, setStartDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0];
+  });
   const [selectedCashier, setSelectedCashier] = useState('all');
   
   // State for search and sorting
@@ -26,59 +33,69 @@ const AdminDashboard = () => {
   const [showInventory, setShowInventory] = useState(false);
   const [showManageAccount, setShowManageAccount] = useState(false);
 
-  // Shared products state
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      drug_name: 'FUROSEMIDE',
-      dosage: '40mg',
-      form: 'Tablet',
-      manufacturer: 'Pfizer Inc.',
-      base_price: 'PHP 150.00',
-      category: 'Cardiovascular',
-      image_path: '/images/furosemide.jpg'
-    },
-    {
-      id: 2,
-      drug_name: 'HYDROGEN PEROXIDE',
-      dosage: '3%',
-      form: 'Solution',
-      manufacturer: 'Johnson & Johnson',
-      base_price: 'PHP 75.00',
-      category: 'Antiseptic',
-      image_path: '/images/hydrogen-peroxide.jpg'
-    },
-    {
-      id: 3,
-      drug_name: 'METHOCARBAMOL',
-      dosage: '500mg',
-      form: 'Tablet',
-      manufacturer: 'Abbott Laboratories',
-      base_price: 'PHP 180.00',
-      category: 'Muscle Relaxant',
-      image_path: '/images/methocarbamol.jpg'
-    },
-    {
-      id: 4,
-      drug_name: 'LIPITOR',
-      dosage: '20mg',
-      form: 'Tablet',
-      manufacturer: 'Pfizer Inc.',
-      base_price: 'PHP 320.00',
-      category: 'Cardiovascular',
-      image_path: '/images/lipitor.jpg'
-    },
-    {
-      id: 5,
-      drug_name: 'TACROLIMUS',
-      dosage: '1mg',
-      form: 'Capsule',
-      manufacturer: 'Novartis',
-      base_price: 'PHP 450.00',
-      category: 'Immunosuppressant',
-      image_path: '/images/tacrolimus.jpg'
+  // State for API data
+  const [metrics, setMetrics] = useState({
+    sales: '₱0',
+    transactions: '0',
+    itemsSold: '0',
+    products: '0'
+  });
+  const [dashboardProducts, setDashboardProducts] = useState([]);
+  const [allTransactions, setAllTransactions] = useState([]);
+  const [availableCashiers, setAvailableCashiers] = useState(['all']);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Load dashboard data
+  const loadDashboardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const dateParams = { startDate, endDate };
+      
+      // Load all dashboard data in parallel
+      const [metricsResponse, productsResponse, transactionsResponse, cashiersResponse] = await Promise.all([
+        ordersAPI.getDashboardMetrics(dateParams),
+        ordersAPI.getDashboardProducts(dateParams),
+        ordersAPI.getDashboardTransactions({ ...dateParams, cashier: selectedCashier, search: searchTerm }),
+        ordersAPI.getDashboardCashiers()
+      ]);
+      
+      if (metricsResponse.data.success) {
+        const data = metricsResponse.data.data;
+        setMetrics({
+          sales: `₱${parseFloat(data.sales || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          transactions: data.transactions.toString(),
+          itemsSold: data.itemsSold.toString(),
+          products: data.products.toString()
+        });
+      }
+      
+      if (productsResponse.data.success) {
+        setDashboardProducts(productsResponse.data.data);
+      }
+      
+      if (transactionsResponse.data.success) {
+        setAllTransactions(transactionsResponse.data.data);
+      }
+      
+      if (cashiersResponse.data.success) {
+        setAvailableCashiers(['all', ...cashiersResponse.data.data]);
+      }
+      
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Failed to load dashboard data. Please try again.');
+    } finally {
+      setLoading(false);
     }
-  ]);
+  }, [startDate, endDate, selectedCashier, searchTerm]);
+
+  // Load data on component mount and when filters change
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const handleLogout = async () => {
     await logout();
@@ -119,91 +136,32 @@ const AdminDashboard = () => {
     return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
-  // Dashboard products (summary data for the overview)
-  const dashboardProducts = [
-    { name: 'FUROSEMIDE', sold: 55, available: 29, sales: '₱82,500' },
-    { name: 'HYDROGEN PEROXIDE', sold: 29, available: 51, sales: '₱52,200' },
-    { name: 'METHOCARBAMOL', sold: 28, available: 39, sales: '₱50,400' },
-    { name: 'LIPITOR', sold: 25, available: 60, sales: '₱20,000' },
-    { name: 'TACROLIMUS', sold: 20, available: 37, sales: '₱20,000' },
-    { name: 'ASPIRIN', sold: 19, available: 81, sales: '₱15,200' }
-  ];
-
-  const allTransactions = [
-    {
-      invoice: '1702900200',
-      date: '2023-12-18',
-      total: '₱16,284',
-      paid: '₱45,128',
-      change: '₱28,844',
-      method: 'Card',
-      cashier: 'Administrator'
-    },
-    {
-      invoice: '1702902382',
-      date: '2023-12-18',
-      total: '₱12,862',
-      paid: '₱50,000',
-      change: '₱37,138',
-      method: 'Card',
-      cashier: 'Administrator'
-    },
-    {
-      invoice: '1702934366',
-      date: '2023-12-19',
-      total: '₱28,202',
-      paid: '₱30,000',
-      change: '₱1,798',
-      method: 'Card',
-      cashier: 'Administrator'
-    },
-    {
-      invoice: '1702935367',
-      date: '2023-12-19',
-      total: '₱32,214',
-      paid: '₱50,000',
-      change: '₱17,786',
-      method: 'Card',
-      cashier: 'Administrator'
-    },
-    {
-      invoice: '1702935368',
-      date: '2023-12-20',
-      total: '₱15,000',
-      paid: '₱20,000',
-      change: '₱5,000',
-      method: 'Cash',
-      cashier: 'John Doe'
+  // Handle filter changes
+  const handleDateChange = useCallback((field, value) => {
+    if (field === 'start') {
+      setStartDate(value);
+    } else {
+      setEndDate(value);
     }
-  ];
+  }, []);
 
-  // Filter and sort transactions based on date range, cashier, search term, and sort config
+  const handleCashierChange = useCallback((value) => {
+    setSelectedCashier(value);
+  }, []);
+
+  const handleSearchChange = useCallback((value) => {
+    setSearchTerm(value);
+  }, []);
+
+  // Sort transactions (filtering is done on the backend)
   const filteredTransactions = useMemo(() => {
-    let filtered = allTransactions.filter(transaction => {
-      const transactionDate = new Date(transaction.date);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      
-      // Check date range
-      const withinDateRange = transactionDate >= start && transactionDate <= end;
-      
-      // Check cashier filter
-      const matchesCashier = selectedCashier === 'all' || 
-                            transaction.cashier.toLowerCase() === selectedCashier.toLowerCase();
-      
-      // Check search term
-      const matchesSearch = searchTerm.trim() === '' || 
-                           transaction.invoice.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           transaction.total.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           transaction.cashier.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           transaction.method.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      return withinDateRange && matchesCashier && matchesSearch;
-    });
+    if (!allTransactions || allTransactions.length === 0) {
+      return [];
+    }
 
-    // Sort transactions
+    // Sort transactions if sort config is set
     if (sortConfig.key) {
-      filtered = [...filtered].sort((a, b) => {
+      return [...allTransactions].sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
@@ -212,12 +170,12 @@ const AdminDashboard = () => {
           aValue = new Date(aValue);
           bValue = new Date(bValue);
         } else if (sortConfig.key === 'total' || sortConfig.key === 'paid' || sortConfig.key === 'change') {
-          // Remove currency symbol and convert to number
-          aValue = Number(aValue.replace('₱', '').replace(',', '')) || 0;
-          bValue = Number(bValue.replace('₱', '').replace(',', '')) || 0;
+          // Use raw values for sorting
+          aValue = a[`raw_${sortConfig.key}`] || 0;
+          bValue = b[`raw_${sortConfig.key}`] || 0;
         } else if (sortConfig.key === 'invoice') {
-          aValue = Number(aValue) || 0;
-          bValue = Number(bValue) || 0;
+          aValue = Number(aValue.replace(/\D/g, '')) || 0;
+          bValue = Number(bValue.replace(/\D/g, '')) || 0;
         } else {
           aValue = String(aValue || '').toLowerCase();
           bValue = String(bValue || '').toLowerCase();
@@ -233,16 +191,8 @@ const AdminDashboard = () => {
       });
     }
     
-    return filtered;
-  }, [allTransactions, startDate, endDate, selectedCashier, searchTerm, sortConfig]);
-
-  // Sample data for the dashboard - update transaction count dynamically
-  const metrics = {
-    sales: '₱546,458',
-    transactions: filteredTransactions.length.toString(),
-    itemsSold: '362',
-    products: '27'
-  };
+    return allTransactions;
+  }, [allTransactions, sortConfig]);
 
   // Format date for display
   const formatDateForDisplay = (dateString) => {
@@ -386,6 +336,52 @@ const AdminDashboard = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="admin-dashboard">
+        <div className="loading-container" style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '50vh',
+          flexDirection: 'column'
+        }}>
+          <div className="loading-spinner"></div>
+          <p style={{ marginTop: '20px', color: '#666' }}>Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="admin-dashboard">
+        <div className="error-container" style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '50vh',
+          flexDirection: 'column'
+        }}>
+          <p style={{ color: '#e74c3c', marginBottom: '20px' }}>{error}</p>
+          <button 
+            onClick={loadDashboardData}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#3498db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="admin-dashboard">
       {/* Header with navigation and logout */}
@@ -462,10 +458,12 @@ const AdminDashboard = () => {
         <div className="filters">
           <div className="filter-group">
             <label>Cashier</label>
-            <select value={selectedCashier} onChange={(e) => setSelectedCashier(e.target.value)}>
-              <option value="all">All</option>
-              <option value="administrator">Administrator</option>
-              <option value="john doe">John Doe</option>
+            <select value={selectedCashier} onChange={(e) => handleCashierChange(e.target.value)}>
+              {availableCashiers.map((cashier, index) => (
+                <option key={index} value={cashier}>
+                  {cashier === 'all' ? 'All' : cashier}
+                </option>
+              ))}
             </select>
           </div>
           <div className="filter-group">
@@ -473,19 +471,13 @@ const AdminDashboard = () => {
             <input 
               type="date" 
               value={startDate} 
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                console.log('Start date changed to:', e.target.value);
-              }}
+              onChange={(e) => handleDateChange('start', e.target.value)}
             />
             <span>-</span>
             <input 
               type="date" 
               value={endDate} 
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                console.log('End date changed to:', e.target.value);
-              }}
+              onChange={(e) => handleDateChange('end', e.target.value)}
             />
           </div>
 
@@ -554,9 +546,9 @@ const AdminDashboard = () => {
             <div className="search-input-container">
               <input 
                 type="text" 
-                placeholder="Search" 
+                placeholder="Search transactions..." 
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
               <button className="search-btn">🔍</button>
             </div>

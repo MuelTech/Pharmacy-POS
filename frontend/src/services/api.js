@@ -65,6 +65,11 @@ export const ordersAPI = {
   getById: (id) => api.get(`/orders/${id}`),
   getAll: (params = {}) => api.get('/orders', { params }),
   getPaymentTypes: () => api.get('/orders/payment-types/all'),
+  // Dashboard endpoints
+  getDashboardMetrics: (params = {}) => api.get('/orders/dashboard/metrics', { params }),
+  getDashboardProducts: (params = {}) => api.get('/orders/dashboard/products', { params }),
+  getDashboardTransactions: (params = {}) => api.get('/orders/dashboard/transactions', { params }),
+  getDashboardCashiers: () => api.get('/orders/dashboard/cashiers'),
 };
 
 // Accounts API endpoints

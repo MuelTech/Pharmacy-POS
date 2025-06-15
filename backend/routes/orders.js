@@ -384,4 +384,223 @@ router.get('/payment-types/all', verifyToken, requireStaffOrAdmin, async (req, r
   }
 });
 
+// Get dashboard metrics (Admin access)
+router.get('/dashboard/metrics', verifyToken, requireStaffOrAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    let dateFilter = '';
+    const queryParams = [];
+    
+    if (startDate && endDate) {
+      dateFilter = 'WHERE DATE(o.order_date) BETWEEN ? AND ?';
+      queryParams.push(startDate, endDate);
+    }
+    
+    // Get total sales
+    const [salesResult] = await pool.execute(`
+      SELECT COALESCE(SUM(total_amount), 0) as total_sales
+      FROM orders o
+      ${dateFilter}
+    `, queryParams);
+    
+    // Get total transactions
+    const [transactionsResult] = await pool.execute(`
+      SELECT COUNT(*) as total_transactions
+      FROM orders o
+      ${dateFilter}
+    `, queryParams);
+    
+    // Get total items sold
+    const [itemsResult] = await pool.execute(`
+      SELECT COALESCE(SUM(od.quantity), 0) as total_items
+      FROM orders o
+      JOIN order_details od ON o.order_id = od.order_id
+      ${dateFilter}
+    `, queryParams);
+    
+    // Get total unique products
+    const [productsResult] = await pool.execute(`
+      SELECT COUNT(DISTINCT m.drug_id) as total_products
+      FROM medicines m
+      WHERE EXISTS (
+        SELECT 1 FROM inventory i WHERE i.drug_id = m.drug_id AND i.stock_level > 0
+      )
+    `);
+    
+    res.json({
+      success: true,
+      data: {
+        sales: salesResult[0].total_sales,
+        transactions: transactionsResult[0].total_transactions,
+        itemsSold: itemsResult[0].total_items,
+        products: productsResult[0].total_products
+      }
+    });
+    
+  } catch (error) {
+    console.error('Dashboard metrics error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard metrics'
+    });
+  }
+});
+
+// Get top products for dashboard (Admin access)
+router.get('/dashboard/products', verifyToken, requireStaffOrAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, limit = 6 } = req.query;
+    
+    let dateFilter = '';
+    const queryParams = [];
+    
+    if (startDate && endDate) {
+      dateFilter = 'AND DATE(o.order_date) BETWEEN ? AND ?';
+      queryParams.push(startDate, endDate);
+    }
+    
+    queryParams.push(parseInt(limit));
+    
+    const [rows] = await pool.execute(`
+      SELECT 
+        m.drug_name as name,
+        COALESCE(SUM(od.quantity), 0) as sold,
+        COALESCE(SUM(i.stock_level), 0) as available,
+        CONCAT('₱', FORMAT(COALESCE(SUM(od.quantity * od.unit_price), 0), 2)) as sales
+      FROM medicines m
+      LEFT JOIN inventory i ON m.drug_id = i.drug_id
+      LEFT JOIN order_details od ON i.inventory_id = od.inventory_id
+      LEFT JOIN orders o ON od.order_id = o.order_id
+      WHERE 1=1 ${dateFilter}
+      GROUP BY m.drug_id, m.drug_name
+      ORDER BY sold DESC, sales DESC
+      LIMIT ?
+    `, queryParams);
+    
+    res.json({
+      success: true,
+      data: rows
+    });
+    
+  } catch (error) {
+    console.error('Dashboard products error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard products'
+    });
+  }
+});
+
+// Get transaction details for dashboard (Admin access)
+router.get('/dashboard/transactions', verifyToken, requireStaffOrAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, cashier, search, page = 1, limit = 50 } = req.query;
+    
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    
+    let query = `
+      SELECT 
+        CONCAT('1703', LPAD(o.order_id, 6, '0')) as invoice,
+        DATE_FORMAT(o.order_date, '%Y-%m-%d') as date,
+        CONCAT('₱', FORMAT(o.total_amount, 2)) as total,
+        CONCAT('₱', FORMAT(COALESCE(pay.amount_paid, o.total_amount), 2)) as paid,
+        CONCAT('₱', FORMAT(COALESCE(pay.change_amount, 0), 2)) as \`change\`,
+        COALESCE(pt.payment_type, 'Cash') as method,
+        COALESCE(TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))), a.username, 'Staff') as cashier,
+        o.order_id,
+        o.order_date as raw_date,
+        o.total_amount as raw_total,
+        COALESCE(pay.amount_paid, o.total_amount) as raw_paid,
+        COALESCE(pay.change_amount, 0) as raw_change
+      FROM orders o
+      LEFT JOIN accounts a ON o.account_id = a.account_id
+      LEFT JOIN pharmacists p ON a.pharmacist_id = p.pharmacist_id
+      LEFT JOIN payments pay ON o.order_id = pay.order_id
+      LEFT JOIN payment_types pt ON pay.payment_type_id = pt.payment_type_id
+      WHERE 1=1
+    `;
+    
+    const queryParams = [];
+    
+    if (startDate && endDate) {
+      query += ' AND DATE(o.order_date) BETWEEN ? AND ?';
+      queryParams.push(startDate, endDate);
+    }
+    
+    if (cashier && cashier !== 'all') {
+      query += ' AND (LOWER(TRIM(CONCAT(COALESCE(p.first_name, \'\'), \' \', COALESCE(p.last_name, \'\')))) LIKE LOWER(?) OR LOWER(a.username) LIKE LOWER(?))';
+      queryParams.push(`%${cashier}%`, `%${cashier}%`);
+    }
+    
+    if (search && search.trim()) {
+      query += ` AND (
+        CONCAT('1703', LPAD(o.order_id, 6, '0')) LIKE ? OR
+        FORMAT(o.total_amount, 2) LIKE ? OR
+        COALESCE(pt.payment_type, 'Cash') LIKE ? OR
+        TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))) LIKE ? OR
+        a.username LIKE ?
+      )`;
+      const searchTerm = `%${search.trim()}%`;
+      queryParams.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+    }
+    
+    // Get total count for pagination
+    const countQuery = query.replace(/SELECT.*?FROM/, 'SELECT COUNT(*) as total FROM');
+    
+    const [countResult] = await pool.execute(countQuery, queryParams);
+    const totalRecords = countResult[0].total;
+    
+    query += ' ORDER BY o.order_date DESC LIMIT ? OFFSET ?';
+    queryParams.push(parseInt(limit), parseInt(offset));
+    
+    const [rows] = await pool.execute(query, queryParams);
+    
+    res.json({
+      success: true,
+      data: rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalRecords,
+        totalPages: Math.ceil(totalRecords / parseInt(limit))
+      }
+    });
+    
+  } catch (error) {
+    console.error('Dashboard transactions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch dashboard transactions'
+    });
+  }
+});
+
+// Get unique cashiers for filter dropdown (Admin access)
+router.get('/dashboard/cashiers', verifyToken, requireStaffOrAdmin, async (req, res) => {
+  try {
+    const [rows] = await pool.execute(`
+      SELECT DISTINCT 
+        COALESCE(TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))), a.username, 'Staff') as cashier_name
+      FROM orders o
+      LEFT JOIN accounts a ON o.account_id = a.account_id
+      LEFT JOIN pharmacists p ON a.pharmacist_id = p.pharmacist_id
+      WHERE COALESCE(TRIM(CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, ''))), a.username, 'Staff') != ''
+      ORDER BY cashier_name ASC
+    `);
+    
+    res.json({
+      success: true,
+      data: rows.map(row => row.cashier_name)
+    });
+    
+  } catch (error) {
+    console.error('Dashboard cashiers error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch cashiers'
+    });
+  }
+});
+
 module.exports = router; 
