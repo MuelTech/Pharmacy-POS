@@ -28,10 +28,10 @@ const verifyToken = async (req, res, next) => {
       });
     }
 
-    // Normalize role to lowercase for consistency
+    // Keep role as stored in database (Admin/Staff)
     const user = {
       ...rows[0],
-      role: rows[0].role.toLowerCase()
+      role: rows[0].role
     };
 
     req.user = user;
@@ -47,7 +47,7 @@ const verifyToken = async (req, res, next) => {
 
 // Check if user is Admin
 const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'Admin') {
     return res.status(403).json({ 
       success: false, 
       message: 'Access denied. Admin privileges required.' 
@@ -58,7 +58,7 @@ const requireAdmin = (req, res, next) => {
 
 // Check if user is Staff or Admin
 const requireStaffOrAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+  if (req.user.role !== 'Admin' && req.user.role !== 'Staff') {
     return res.status(403).json({ 
       success: false, 
       message: 'Access denied. Staff or Admin privileges required.' 

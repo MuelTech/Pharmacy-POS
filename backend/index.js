@@ -64,6 +64,10 @@ app.use('/api/products', productRoutes);
 const orderRoutes = require('./routes/orders');
 app.use('/api/orders', orderRoutes);
 
+// Accounts routes
+const accountRoutes = require('./routes/accounts');
+app.use('/api/accounts', accountRoutes);
+
 // TODO: Add more route imports here
 // const medicineRoutes = require('./routes/medicine');
 // app.use('/api/medicine', medicineRoutes);

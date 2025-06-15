@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ManageAccount.css';
+import { accountsAPI } from '../../services/api';
 
 const ManageAccount = ({ isOpen, onClose }) => {
   const [accounts, setAccounts] = useState([]);
@@ -23,40 +24,25 @@ const ManageAccount = ({ isOpen, onClose }) => {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Mock data for demonstration
+  // Fetch accounts from API
   useEffect(() => {
-    const mockAccounts = [
-      {
-        id: 1,
-        username: 'john_doe',
-        role: 'Admin',
-        isActive: true,
-        lastLogin: '2024-03-15 10:30 AM',
-        createdAt: '2024-01-15 08:00 AM',
-        updatedAt: '2024-03-10 02:15 PM',
-        firstName: 'John',
-        lastName: 'Doe',
-        phoneNumber: '123-456-7890',
-        email: 'john@example.com',
-        licenseNumber: 'PH12345'
-      },
-      {
-        id: 2,
-        username: 'jane_smith',
-        role: 'Staff',
-        isActive: true,
-        lastLogin: '2024-03-15 09:15 AM',
-        createdAt: '2024-02-01 09:30 AM',
-        updatedAt: '2024-03-12 11:45 AM',
-        firstName: 'Jane',
-        lastName: 'Smith',
-        phoneNumber: '987-654-3210',
-        email: 'jane@example.com',
-        licenseNumber: 'ST67890'
-      }
-    ];
-    setAccounts(mockAccounts);
+    fetchAccounts();
   }, []);
+
+  const fetchAccounts = async () => {
+    try {
+      const response = await accountsAPI.getAll();
+      if (response.data.success) {
+        setAccounts(response.data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch accounts:', error);
+      setMessage({ 
+        type: 'error', 
+        text: 'Failed to load accounts. Please try again.' 
+      });
+    }
+  };
 
 
 
@@ -70,15 +56,6 @@ const ManageAccount = ({ isOpen, onClose }) => {
       newErrors.username = 'Username must be at least 3 characters long';
     } else if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
       newErrors.username = 'Username can only contain letters, numbers, and underscores';
-    } else if (!editMode || (editMode && formData.username !== accounts.find(acc => acc.id === editingId)?.username)) {
-      // Check for duplicate username
-      const isDuplicate = accounts.some(account => 
-        account.username.toLowerCase() === formData.username.toLowerCase() && 
-        account.id !== editingId
-      );
-      if (isDuplicate) {
-        newErrors.username = 'Username already exists';
-      }
     }
 
     // Password validation
@@ -93,15 +70,6 @@ const ManageAccount = ({ isOpen, onClose }) => {
       newErrors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
-    } else if (!editMode || (editMode && formData.email !== accounts.find(acc => acc.id === editingId)?.email)) {
-      // Check for duplicate email
-      const isDuplicateEmail = accounts.some(account => 
-        account.email.toLowerCase() === formData.email.toLowerCase() && 
-        account.id !== editingId
-      );
-      if (isDuplicateEmail) {
-        newErrors.email = 'Email already exists';
-      }
     }
 
     // Phone number validation
@@ -183,54 +151,64 @@ const ManageAccount = ({ isOpen, onClose }) => {
     // Validate form
     if (!validateForm()) {
       setIsSubmitting(false);
-      alert('Please fill in all required fields');
       return;
     }
 
     try {
-      const currentDate = new Date().toLocaleString();
+      const accountData = {
+        username: formData.username,
+        role: formData.role,
+        isActive: formData.isActive,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phoneNumber: formData.phoneNumber,
+        email: formData.email,
+        licenseNumber: formData.licenseNumber
+      };
+
+      // Only include password if it's provided
+      if (formData.password) {
+        accountData.password = formData.password;
+      }
       
+      let response;
       if (editMode) {
         // Update existing account
-        setAccounts(prev =>
-          prev.map(account =>
-            account.id === editingId
-              ? { 
-                  ...account, 
-                  ...formData, 
-                  updatedAt: currentDate,
-                  // Don't update password if it's empty during edit
-                  ...(formData.password ? {} : { password: account.password })
-                }
-              : account
-          )
-        );
+        response = await accountsAPI.update(editingId, accountData);
         setSuccessMessage('Account updated successfully!');
-        setShowSuccessPopup(true);
       } else {
         // Create new account
-        const newAccount = {
-          id: Date.now(),
-          ...formData,
-          lastLogin: 'Never',
-          createdAt: currentDate,
-          updatedAt: currentDate
-        };
-        
-        setAccounts(prev => [...prev, newAccount]);
+        response = await accountsAPI.create(accountData);
         setSuccessMessage('Account created successfully!');
-        setShowSuccessPopup(true);
       }
 
-      // Reset form after successful submission
-      setTimeout(() => {
-        resetForm();
-        setShowSuccessPopup(false);
-      }, 3000);
+      if (response.data.success) {
+        setShowSuccessPopup(true);
+        // Refresh the accounts list
+        await fetchAccounts();
+        
+        // Reset form after successful submission
+        setTimeout(() => {
+          resetForm();
+          setShowSuccessPopup(false);
+        }, 2000);
+      }
 
     } catch (error) {
       console.error('Error saving account:', error);
-      setMessage({ type: 'error', text: 'Failed to save account. Please try again.' });
+      
+      // Handle specific error messages
+      if (error.response?.data?.message) {
+        setMessage({ 
+          type: 'error', 
+          text: error.response.data.message 
+        });
+      } else {
+        setMessage({ 
+          type: 'error', 
+          text: 'Failed to save account. Please try again.' 
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -252,15 +230,28 @@ const ManageAccount = ({ isOpen, onClose }) => {
     });
   };
 
-  const handleToggleStatus = (id) => {
-    const currentDate = new Date().toLocaleString();
-    setAccounts(prev =>
-      prev.map(account =>
-        account.id === id
-          ? { ...account, isActive: !account.isActive, updatedAt: currentDate }
-          : account
-      )
-    );
+  const handleToggleStatus = async (id) => {
+    try {
+      const response = await accountsAPI.toggleStatus(id);
+      if (response.data.success) {
+        // Refresh the accounts list to get updated data
+        await fetchAccounts();
+        setMessage({ 
+          type: 'success', 
+          text: response.data.message 
+        });
+        // Clear message after 3 seconds
+        setTimeout(() => {
+          setMessage({ type: '', text: '' });
+        }, 3000);
+      }
+    } catch (error) {
+      console.error('Error toggling account status:', error);
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Failed to update account status.' 
+      });
+    }
   };
 
   const resetForm = () => {
@@ -314,8 +305,10 @@ const ManageAccount = ({ isOpen, onClose }) => {
                     value={formData.username}
                     onChange={handleInputChange}
                     placeholder="Enter username"
+                    className={errors.username ? 'error' : ''}
                     required
                   />
+                  {errors.username && <span className="error-message">{errors.username}</span>}
                 </div>
 
                 <div className="form-group">
@@ -327,8 +320,10 @@ const ManageAccount = ({ isOpen, onClose }) => {
                     value={formData.password}
                     onChange={handleInputChange}
                     placeholder={editMode ? "Leave blank to keep current password" : "Enter password"}
+                    className={errors.password ? 'error' : ''}
                     required={!editMode}
                   />
+                  {errors.password && <span className="error-message">{errors.password}</span>}
                 </div>
               </div>
 
@@ -377,8 +372,10 @@ const ManageAccount = ({ isOpen, onClose }) => {
                     value={formData.firstName}
                     onChange={handleInputChange}
                     placeholder="Enter first name"
+                    className={errors.firstName ? 'error' : ''}
                     required
                   />
+                  {errors.firstName && <span className="error-message">{errors.firstName}</span>}
                 </div>
 
                 <div className="form-group">
@@ -390,8 +387,10 @@ const ManageAccount = ({ isOpen, onClose }) => {
                     value={formData.lastName}
                     onChange={handleInputChange}
                     placeholder="Enter last name"
+                    className={errors.lastName ? 'error' : ''}
                     required
                   />
+                  {errors.lastName && <span className="error-message">{errors.lastName}</span>}
                 </div>
               </div>
 
@@ -406,8 +405,10 @@ const ManageAccount = ({ isOpen, onClose }) => {
                     onChange={handleInputChange}
                     placeholder="123-456-7890"
                     maxLength="12"
+                    className={errors.phoneNumber ? 'error' : ''}
                     required
                   />
+                  {errors.phoneNumber && <span className="error-message">{errors.phoneNumber}</span>}
                 </div>
 
                 <div className="form-group">
@@ -419,8 +420,10 @@ const ManageAccount = ({ isOpen, onClose }) => {
                     value={formData.email}
                     onChange={handleInputChange}
                     placeholder="Enter email address"
+                    className={errors.email ? 'error' : ''}
                     required
                   />
+                  {errors.email && <span className="error-message">{errors.email}</span>}
                 </div>
               </div>
 
@@ -434,8 +437,10 @@ const ManageAccount = ({ isOpen, onClose }) => {
                     value={formData.licenseNumber}
                     onChange={handleInputChange}
                     placeholder="Enter license number"
+                    className={errors.licenseNumber ? 'error' : ''}
                     required
                   />
+                  {errors.licenseNumber && <span className="error-message">{errors.licenseNumber}</span>}
                 </div>
                 <div className="form-group"></div> {/* Empty div for grid alignment */}
               </div>
@@ -494,9 +499,9 @@ const ManageAccount = ({ isOpen, onClose }) => {
                 <td>{account.username}</td>
                 <td>{account.role}</td>
                 <td>{account.isActive ? 'Active' : 'Inactive'}</td>
-                <td>{account.lastLogin}</td>
-                <td>{account.createdAt}</td>
-                <td>{account.updatedAt}</td>
+                <td>{account.lastLogin || 'Never'}</td>
+                <td>{account.createdAt ? new Date(account.createdAt).toLocaleString() : 'N/A'}</td>
+                <td>{account.updatedAt ? new Date(account.updatedAt).toLocaleString() : 'N/A'}</td>
                 <td>
                   <div className="action-buttons">
                     <button

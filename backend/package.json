@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "jest",
-    "setup": "node scripts/setup-database.js"
+    "test": "jest"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

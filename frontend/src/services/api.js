@@ -64,6 +64,15 @@ export const ordersAPI = {
   getPaymentTypes: () => api.get('/orders/payment-types/all'),
 };
 
+// Accounts API endpoints
+export const accountsAPI = {
+  getAll: () => api.get('/accounts'),
+  getById: (id) => api.get(`/accounts/${id}`),
+  create: (accountData) => api.post('/accounts', accountData),
+  update: (id, accountData) => api.put(`/accounts/${id}`, accountData),
+  toggleStatus: (id) => api.patch(`/accounts/${id}/status`),
+};
+
 // Health check
 export const healthAPI = {
   check: () => api.get('/health'),
