@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import './ManageProduct.css';
 
-const ManageProduct = ({ isVisible, onClose }) => {
+const ManageProduct = ({ isVisible, onClose, products, setProducts }) => {
   // Form state
   const [formData, setFormData] = useState({
     drug_name: '',
@@ -24,60 +24,6 @@ const ManageProduct = ({ isVisible, onClose }) => {
   // Success popup state
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Sample products data (UI-only)
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      drug_name: 'FUROSEMIDE',
-      dosage: '40mg',
-      form: 'Tablet',
-      manufacturer: 'Pfizer Inc.',
-      base_price: 'PHP 150.00',
-      category: 'Cardiovascular',
-      image_path: '/images/furosemide.jpg'
-    },
-    {
-      id: 2,
-      drug_name: 'HYDROGEN PEROXIDE',
-      dosage: '3%',
-      form: 'Solution',
-      manufacturer: 'Johnson & Johnson',
-      base_price: 'PHP 75.00',
-      category: 'Antiseptic',
-      image_path: '/images/hydrogen-peroxide.jpg'
-    },
-    {
-      id: 3,
-      drug_name: 'METHOCARBAMOL',
-      dosage: '500mg',
-      form: 'Tablet',
-      manufacturer: 'Abbott Laboratories',
-      base_price: 'PHP 180.00',
-      category: 'Muscle Relaxant',
-      image_path: '/images/methocarbamol.jpg'
-    },
-    {
-      id: 4,
-      drug_name: 'LIPITOR',
-      dosage: '20mg',
-      form: 'Tablet',
-      manufacturer: 'Pfizer Inc.',
-      base_price: 'PHP 320.00',
-      category: 'Cardiovascular',
-      image_path: '/images/lipitor.jpg'
-    },
-    {
-      id: 5,
-      drug_name: 'TACROLIMUS',
-      dosage: '1mg',
-      form: 'Capsule',
-      manufacturer: 'Novartis',
-      base_price: 'PHP 450.00',
-      category: 'Immunosuppressant',
-      image_path: '/images/tacrolimus.jpg'
-    }
-  ]);
 
   // Handle form input changes
   const handleInputChange = (e) => {

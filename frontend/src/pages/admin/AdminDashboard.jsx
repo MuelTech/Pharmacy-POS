@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import ManageProduct from './ManageProduct';
+import InventoryModal from './InventoryModal';
+import ManageAccount from './ManageAccount';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import './AdminDashboard.css';
@@ -21,6 +23,62 @@ const AdminDashboard = () => {
   
   // State for ManageProduct modal
   const [showManageProduct, setShowManageProduct] = useState(false);
+  const [showInventory, setShowInventory] = useState(false);
+  const [showManageAccount, setShowManageAccount] = useState(false);
+
+  // Shared products state
+  const [products, setProducts] = useState([
+    {
+      id: 1,
+      drug_name: 'FUROSEMIDE',
+      dosage: '40mg',
+      form: 'Tablet',
+      manufacturer: 'Pfizer Inc.',
+      base_price: 'PHP 150.00',
+      category: 'Cardiovascular',
+      image_path: '/images/furosemide.jpg'
+    },
+    {
+      id: 2,
+      drug_name: 'HYDROGEN PEROXIDE',
+      dosage: '3%',
+      form: 'Solution',
+      manufacturer: 'Johnson & Johnson',
+      base_price: 'PHP 75.00',
+      category: 'Antiseptic',
+      image_path: '/images/hydrogen-peroxide.jpg'
+    },
+    {
+      id: 3,
+      drug_name: 'METHOCARBAMOL',
+      dosage: '500mg',
+      form: 'Tablet',
+      manufacturer: 'Abbott Laboratories',
+      base_price: 'PHP 180.00',
+      category: 'Muscle Relaxant',
+      image_path: '/images/methocarbamol.jpg'
+    },
+    {
+      id: 4,
+      drug_name: 'LIPITOR',
+      dosage: '20mg',
+      form: 'Tablet',
+      manufacturer: 'Pfizer Inc.',
+      base_price: 'PHP 320.00',
+      category: 'Cardiovascular',
+      image_path: '/images/lipitor.jpg'
+    },
+    {
+      id: 5,
+      drug_name: 'TACROLIMUS',
+      dosage: '1mg',
+      form: 'Capsule',
+      manufacturer: 'Novartis',
+      base_price: 'PHP 450.00',
+      category: 'Immunosuppressant',
+      image_path: '/images/tacrolimus.jpg'
+    }
+  ]);
 
   const handleLogout = async () => {
     await logout();
@@ -29,8 +87,7 @@ const AdminDashboard = () => {
 
   // Navigation handlers
   const handleInventoryClick = () => {
-    // TODO: Navigate to inventory page
-    console.log('Navigating to Inventory');
+    setShowInventory(true);
   };
 
   const handleProductClick = () => {
@@ -38,8 +95,7 @@ const AdminDashboard = () => {
   };
 
   const handleAccountClick = () => {
-    // TODO: Navigate to account page
-    console.log('Navigating to Account');
+    setShowManageAccount(true);
   };
 
   const handleSettingsClick = () => {
@@ -63,7 +119,8 @@ const AdminDashboard = () => {
     return sortConfig.direction === 'asc' ? '↑' : '↓';
   };
 
-  const products = [
+  // Dashboard products (summary data for the overview)
+  const dashboardProducts = [
     { name: 'FUROSEMIDE', sold: 55, available: 29, sales: '₱82,500' },
     { name: 'HYDROGEN PEROXIDE', sold: 29, available: 51, sales: '₱52,200' },
     { name: 'METHOCARBAMOL', sold: 28, available: 39, sales: '₱50,400' },
@@ -329,8 +386,6 @@ const AdminDashboard = () => {
     }
   };
 
-
-
   return (
     <div className="admin-dashboard">
       {/* Header with navigation and logout */}
@@ -453,14 +508,14 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {products.map((product, index) => (
-                  <tr key={index}>
-                    <td>{product.name}</td>
-                    <td>{product.sold}</td>
-                    <td>{product.available}</td>
-                    <td>{product.sales}</td>
-                  </tr>
-                ))}
+                                  {dashboardProducts.map((product, index) => (
+                    <tr key={index}>
+                      <td>{product.name}</td>
+                      <td>{product.sold}</td>
+                      <td>{product.available}</td>
+                      <td>{product.sales}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
@@ -581,6 +636,21 @@ const AdminDashboard = () => {
       <ManageProduct 
         isVisible={showManageProduct} 
         onClose={() => setShowManageProduct(false)} 
+        products={products}
+        setProducts={setProducts}
+      />
+
+      {/* Add InventoryModal */}
+      <InventoryModal
+        isOpen={showInventory}
+        onClose={() => setShowInventory(false)}
+        products={products}
+      />
+
+      {/* Add ManageAccount Modal */}
+      <ManageAccount 
+        isOpen={showManageAccount}
+        onClose={() => setShowManageAccount(false)}
       />
     </div>
   );
