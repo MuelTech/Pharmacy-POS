@@ -13,6 +13,8 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
+    minWidth: 800,
+    minHeight: 600,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -20,7 +22,11 @@ function createWindow() {
       webSecurity: true
     },
     icon: path.join(__dirname, 'assets/icon.png'), // Add your app icon here
-    show: false // Don't show until ready
+    show: false, // Don't show until ready
+    titleBarStyle: 'default',
+    resizable: true,
+    maximizable: true,
+    fullscreenable: true
   });
 
   // Load the frontend

@@ -28,6 +28,10 @@ const AdminDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
   
+  // Simple pagination state for transactions (client-side)
+  const [transactionsPage, setTransactionsPage] = useState(1);
+  const [transactionsPerPage, setTransactionsPerPage] = useState(10);
+  
   // State for ManageProduct modal
   const [showManageProduct, setShowManageProduct] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
@@ -41,6 +45,12 @@ const AdminDashboard = () => {
     products: '0'
   });
   const [dashboardProducts, setDashboardProducts] = useState([]);
+  const [productsPagination, setProductsPagination] = useState({
+    page: 1,
+    limit: 6,
+    total: 0,
+    totalPages: 0
+  });
   const [allTransactions, setAllTransactions] = useState([]);
   const [availableCashiers, setAvailableCashiers] = useState(['all']);
   const [loading, setLoading] = useState(true);
@@ -53,11 +63,16 @@ const AdminDashboard = () => {
       setError(null);
       
       const dateParams = { startDate, endDate };
+      const productsParams = { 
+        ...dateParams, 
+        page: productsPagination.page, 
+        limit: productsPagination.limit 
+      };
       
       // Load all dashboard data in parallel
       const [metricsResponse, productsResponse, transactionsResponse, cashiersResponse] = await Promise.all([
         ordersAPI.getDashboardMetrics(dateParams),
-        ordersAPI.getDashboardProducts(dateParams),
+        ordersAPI.getDashboardProducts(productsParams),
         ordersAPI.getDashboardTransactions({ ...dateParams, cashier: selectedCashier, search: searchTerm }),
         ordersAPI.getDashboardCashiers()
       ]);
@@ -74,6 +89,9 @@ const AdminDashboard = () => {
       
       if (productsResponse.data.success) {
         setDashboardProducts(productsResponse.data.data);
+        if (productsResponse.data.pagination) {
+          setProductsPagination(productsResponse.data.pagination);
+        }
       }
       
       if (transactionsResponse.data.success) {
@@ -90,7 +108,7 @@ const AdminDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [startDate, endDate, selectedCashier, searchTerm]);
+  }, [startDate, endDate, selectedCashier, searchTerm, productsPagination.page, productsPagination.limit]);
 
   // Load data on component mount and when filters change
   useEffect(() => {
@@ -153,15 +171,48 @@ const AdminDashboard = () => {
     setSearchTerm(value);
   }, []);
 
+  // Products pagination handlers
+  const handleProductsPageChange = useCallback((newPage) => {
+    setProductsPagination(prev => ({
+      ...prev,
+      page: newPage
+    }));
+  }, []);
+
+  const handleProductsLimitChange = useCallback((newLimit) => {
+    setProductsPagination(prev => ({
+      ...prev,
+      page: 1, // Reset to first page when changing limit
+      limit: newLimit
+    }));
+  }, []);
+
+  // Simple pagination handlers for transactions
+  const handleTransactionsPageChange = (newPage) => {
+    setTransactionsPage(newPage);
+  };
+
+  const handleTransactionsPerPageChange = (newPerPage) => {
+    setTransactionsPerPage(newPerPage);
+    setTransactionsPage(1); // Reset to first page
+  };
+
+  // Reset transactions page when filters change
+  useEffect(() => {
+    setTransactionsPage(1);
+  }, [startDate, endDate, selectedCashier, searchTerm]);
+
   // Sort transactions (filtering is done on the backend)
   const filteredTransactions = useMemo(() => {
     if (!allTransactions || allTransactions.length === 0) {
       return [];
     }
 
+    let sortedTransactions = allTransactions;
+
     // Sort transactions if sort config is set
     if (sortConfig.key) {
-      return [...allTransactions].sort((a, b) => {
+      sortedTransactions = [...allTransactions].sort((a, b) => {
         let aValue = a[sortConfig.key];
         let bValue = b[sortConfig.key];
         
@@ -191,8 +242,28 @@ const AdminDashboard = () => {
       });
     }
     
-    return allTransactions;
+    return sortedTransactions;
   }, [allTransactions, sortConfig]);
+
+  // Paginated transactions for display
+  const paginatedTransactions = useMemo(() => {
+    const startIndex = (transactionsPage - 1) * transactionsPerPage;
+    const endIndex = startIndex + transactionsPerPage;
+    return filteredTransactions.slice(startIndex, endIndex);
+  }, [filteredTransactions, transactionsPage, transactionsPerPage]);
+
+  // Calculate pagination info
+  const transactionsPaginationInfo = useMemo(() => {
+    const totalTransactions = filteredTransactions.length;
+    const totalPages = Math.ceil(totalTransactions / transactionsPerPage);
+    return {
+      totalTransactions,
+      totalPages,
+      currentPage: transactionsPage,
+      startIndex: (transactionsPage - 1) * transactionsPerPage + 1,
+      endIndex: Math.min(transactionsPage * transactionsPerPage, totalTransactions)
+    };
+  }, [filteredTransactions.length, transactionsPage, transactionsPerPage]);
 
   // Format date for display
   const formatDateForDisplay = (dateString) => {
@@ -488,7 +559,22 @@ const AdminDashboard = () => {
       <div className="content-panels">
         {/* Products Panel */}
         <div className="products-panel">
-          <h3>Products</h3>
+          <div className="panel-header">
+            <h3>Products</h3>
+            <div className="products-controls">
+              <select 
+                value={productsPagination.limit} 
+                onChange={(e) => handleProductsLimitChange(parseInt(e.target.value))}
+                className="limit-select"
+              >
+                <option value={6}>6 per page</option>
+                <option value={10}>10 per page</option>
+                <option value={15}>15 per page</option>
+                <option value={20}>20 per page</option>
+              </select>
+            </div>
+          </div>
+          
           <div className="products-table">
             <table>
               <thead>
@@ -500,48 +586,96 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                                  {dashboardProducts.map((product, index) => (
-                    <tr key={index}>
-                      <td>{product.name}</td>
-                      <td>{product.sold}</td>
-                      <td>{product.available}</td>
-                      <td>{product.sales}</td>
-                    </tr>
-                  ))}
+                {dashboardProducts.map((product, index) => (
+                  <tr key={index}>
+                    <td>{product.name}</td>
+                    <td>{product.sold}</td>
+                    <td>{product.available}</td>
+                    <td>{product.sales}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
+          
+          {/* Products Pagination */}
+          {productsPagination.totalPages > 1 && (
+            <div className="pagination-controls">
+              <button 
+                onClick={() => handleProductsPageChange(productsPagination.page - 1)}
+                disabled={productsPagination.page <= 1}
+                className="pagination-btn"
+              >
+                ← Previous
+              </button>
+              
+              <div className="pagination-info">
+                <span>
+                  Page {productsPagination.page} of {productsPagination.totalPages}
+                </span>
+                <small>
+                  ({productsPagination.total} total products)
+                </small>
+              </div>
+              
+              <button 
+                onClick={() => handleProductsPageChange(productsPagination.page + 1)}
+                disabled={productsPagination.page >= productsPagination.totalPages}
+                className="pagination-btn"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Transaction Details Panel */}
         <div className="transaction-details-panel">
           <div className="panel-header">
             <h3>Transaction Details</h3>
-            <div className="export-buttons">
-              <button 
-                className="export-btn csv" 
-                onClick={() => {
-                  console.log('CSV button clicked');
-                  exportToCSV();
-                }}
+            <div className="panel-controls">
+              <select 
+                value={transactionsPerPage} 
+                onChange={(e) => handleTransactionsPerPageChange(parseInt(e.target.value))}
+                className="limit-select"
               >
-                CSV
-              </button>
-              <button 
-                className="export-btn pdf" 
-                onClick={() => {
-                  console.log('PDF button clicked');
-                  exportToPDF();
-                }}
-              >
-                PDF
-              </button>
+                <option value={5}>5 per page</option>
+                <option value={10}>10 per page</option>
+                <option value={15}>15 per page</option>
+                <option value={25}>25 per page</option>
+                <option value={50}>50 per page</option>
+              </select>
+              <div className="export-buttons">
+                <button 
+                  className="export-btn csv" 
+                  onClick={() => {
+                    console.log('CSV button clicked');
+                    exportToCSV();
+                  }}
+                >
+                  CSV
+                </button>
+                <button 
+                  className="export-btn pdf" 
+                  onClick={() => {
+                    console.log('PDF button clicked');
+                    exportToPDF();
+                  }}
+                >
+                  PDF
+                </button>
+              </div>
             </div>
           </div>
           
           <div className="search-bar">
             <div className="transaction-count">
-              <small>Showing {filteredTransactions.length} transactions</small>
+              <small>
+                Showing {transactionsPaginationInfo.startIndex}-{transactionsPaginationInfo.endIndex} of {transactionsPaginationInfo.totalTransactions} transactions
+                {transactionsPaginationInfo.totalPages > 1 && (
+                  <span> (Page {transactionsPaginationInfo.currentPage} of {transactionsPaginationInfo.totalPages})</span>
+                )}
+              </small>
             </div>
             <div className="search-input-container">
               <input 
@@ -604,7 +738,7 @@ const AdminDashboard = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.map((transaction, index) => (
+                {paginatedTransactions.map((transaction, index) => (
                   <tr key={index}>
                     <td>{transaction.invoice}</td>
                     <td>{formatDateForDisplay(transaction.date)}</td>
@@ -621,6 +755,36 @@ const AdminDashboard = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Transactions Pagination */}
+          {transactionsPaginationInfo.totalPages > 1 && (
+            <div className="pagination-controls">
+              <button 
+                onClick={() => handleTransactionsPageChange(transactionsPaginationInfo.currentPage - 1)}
+                disabled={transactionsPaginationInfo.currentPage <= 1}
+                className="pagination-btn"
+              >
+                ← Previous
+              </button>
+              
+              <div className="pagination-info">
+                <span>
+                  Page {transactionsPaginationInfo.currentPage} of {transactionsPaginationInfo.totalPages}
+                </span>
+                <small>
+                  ({transactionsPaginationInfo.totalTransactions} total transactions)
+                </small>
+              </div>
+              
+              <button 
+                onClick={() => handleTransactionsPageChange(transactionsPaginationInfo.currentPage + 1)}
+                disabled={transactionsPaginationInfo.currentPage >= transactionsPaginationInfo.totalPages}
+                className="pagination-btn"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

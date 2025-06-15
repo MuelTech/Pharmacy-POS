@@ -450,7 +450,8 @@ router.get('/dashboard/metrics', verifyToken, requireStaffOrAdmin, async (req, r
 // Get top products for dashboard (Admin access)
 router.get('/dashboard/products', verifyToken, requireStaffOrAdmin, async (req, res) => {
   try {
-    const { startDate, endDate, limit = 6 } = req.query;
+    const { startDate, endDate, limit = 6, page = 1 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
     
     let dateFilter = '';
     const queryParams = [];
@@ -460,27 +461,84 @@ router.get('/dashboard/products', verifyToken, requireStaffOrAdmin, async (req, 
       queryParams.push(startDate, endDate);
     }
     
-    queryParams.push(parseInt(limit));
-    
-    const [rows] = await pool.execute(`
+    // Get products with sales data and accurate stock levels
+    const salesQuery = `
       SELECT 
+        m.drug_id,
         m.drug_name as name,
-        COALESCE(SUM(od.quantity), 0) as sold,
-        COALESCE(SUM(i.stock_level), 0) as available,
-        CONCAT('₱', FORMAT(COALESCE(SUM(od.quantity * od.unit_price), 0), 2)) as sales
+        COALESCE(sales_data.sold, 0) as sold,
+        COALESCE(stock_data.available, 0) as available,
+        CONCAT('₱', FORMAT(COALESCE(sales_data.sales_amount, 0), 2)) as sales
       FROM medicines m
-      LEFT JOIN inventory i ON m.drug_id = i.drug_id
-      LEFT JOIN order_details od ON i.inventory_id = od.inventory_id
-      LEFT JOIN orders o ON od.order_id = o.order_id
-      WHERE 1=1 ${dateFilter}
-      GROUP BY m.drug_id, m.drug_name
-      ORDER BY sold DESC, sales DESC
-      LIMIT ?
-    `, queryParams);
+      LEFT JOIN (
+        SELECT 
+          m2.drug_id,
+          SUM(od.quantity) as sold,
+          SUM(od.quantity * od.unit_price) as sales_amount
+        FROM medicines m2
+        JOIN inventory i2 ON m2.drug_id = i2.drug_id
+        JOIN order_details od ON i2.inventory_id = od.inventory_id
+        JOIN orders o ON od.order_id = o.order_id
+        WHERE 1=1 ${dateFilter}
+        GROUP BY m2.drug_id
+      ) sales_data ON m.drug_id = sales_data.drug_id
+      LEFT JOIN (
+        SELECT 
+          drug_id,
+          SUM(stock_level) as available
+        FROM inventory
+        WHERE stock_level > 0
+        GROUP BY drug_id
+      ) stock_data ON m.drug_id = stock_data.drug_id
+      WHERE stock_data.available > 0 OR sales_data.sold > 0
+      ORDER BY sold DESC, sales_amount DESC
+    `;
+    
+    // Get total count for pagination
+    const countQuery = `
+      SELECT COUNT(*) as total
+      FROM medicines m
+      LEFT JOIN (
+        SELECT 
+          m2.drug_id,
+          SUM(od.quantity) as sold
+        FROM medicines m2
+        JOIN inventory i2 ON m2.drug_id = i2.drug_id
+        JOIN order_details od ON i2.inventory_id = od.inventory_id
+        JOIN orders o ON od.order_id = o.order_id
+        WHERE 1=1 ${dateFilter}
+        GROUP BY m2.drug_id
+      ) sales_data ON m.drug_id = sales_data.drug_id
+      LEFT JOIN (
+        SELECT 
+          drug_id,
+          SUM(stock_level) as available
+        FROM inventory
+        WHERE stock_level > 0
+        GROUP BY drug_id
+      ) stock_data ON m.drug_id = stock_data.drug_id
+      WHERE stock_data.available > 0 OR sales_data.sold > 0
+    `;
+    
+    // Execute count query
+    const [countResult] = await pool.execute(countQuery, queryParams);
+    const totalRecords = countResult[0].total;
+    
+    // Add pagination to main query
+    const finalQuery = salesQuery + ' LIMIT ? OFFSET ?';
+    queryParams.push(parseInt(limit), parseInt(offset));
+    
+    const [rows] = await pool.execute(finalQuery, queryParams);
     
     res.json({
       success: true,
-      data: rows
+      data: rows,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: totalRecords,
+        totalPages: Math.ceil(totalRecords / parseInt(limit))
+      }
     });
     
   } catch (error) {
