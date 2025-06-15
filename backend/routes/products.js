@@ -21,11 +21,9 @@ router.get('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
         m.category_id,
         m.image_path,
         c.category_name,
-        i.inventory_id,
-        i.stock_level,
-        i.expiry_date,
-        i.reorder_level,
-        i.date_received
+        COALESCE(SUM(i.stock_level), 0) as total_stock,
+        MIN(i.expiry_date) as earliest_expiry,
+        COUNT(i.inventory_id) as batch_count
       FROM medicines m
       LEFT JOIN inventory i ON m.drug_id = i.drug_id
       LEFT JOIN categories c ON m.category_id = c.category_id
@@ -36,7 +34,7 @@ router.get('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
     
     // Filter by stock level if requested (for POS vs Admin)
     if (in_stock === 'true') {
-      query += ' AND i.stock_level > 0';
+      query += ' AND EXISTS (SELECT 1 FROM inventory WHERE drug_id = m.drug_id AND stock_level > 0)';
     }
     
     if (category) {
@@ -49,6 +47,7 @@ router.get('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
       queryParams.push(`%${search}%`);
     }
     
+    query += ' GROUP BY m.drug_id, m.drug_name, m.dosage, m.form, m.manufacturer, m.base_price, m.category_id, m.image_path, c.category_name';
     query += ' ORDER BY m.drug_name ASC';
     
     const [rows] = await pool.execute(query, queryParams);

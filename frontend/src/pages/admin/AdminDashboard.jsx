@@ -642,7 +642,6 @@ const AdminDashboard = () => {
       <InventoryModal
         isOpen={showInventory}
         onClose={() => setShowInventory(false)}
-        products={products}
       />
 
       {/* Add ManageAccount Modal */}

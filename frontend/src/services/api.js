@@ -76,6 +76,16 @@ export const accountsAPI = {
   toggleStatus: (id) => api.patch(`/accounts/${id}/status`),
 };
 
+// Inventory API endpoints
+export const inventoryAPI = {
+  getAll: (params = {}) => api.get('/inventory', { params }),
+  getById: (id) => api.get(`/inventory/${id}`),
+  create: (inventoryData) => api.post('/inventory', inventoryData),
+  update: (id, inventoryData) => api.put(`/inventory/${id}`, inventoryData),
+  delete: (id) => api.delete(`/inventory/${id}`),
+  updateStock: (id, stockData) => api.patch(`/inventory/${id}/stock`, stockData),
+};
+
 // Health check
 export const healthAPI = {
   check: () => api.get('/health'),

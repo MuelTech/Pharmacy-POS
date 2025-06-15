@@ -252,15 +252,34 @@ const ManageProduct = ({ isVisible, onClose }) => {
       <div className="manage-product-modal">
         {/* Modal Header */}
         <div className="modal-header">
-          <h2>Manage Products</h2>
+          <h2>Medicine Master List</h2>
           <button className="close-btn" onClick={onClose}>×</button>
+        </div>
+
+        {/* Educational Banner */}
+        <div style={{
+          background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
+          border: '1px solid #90caf9',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          margin: '0 20px 20px 20px',
+          fontSize: '14px',
+          lineHeight: '1.4'
+        }}>
+          <div style={{ fontWeight: 'bold', color: '#1565c0', marginBottom: '4px' }}>
+            📋 Medicine Master List
+          </div>
+          <div style={{ color: '#424242' }}>
+            This section manages the <strong>master list of medicines</strong> in your pharmacy. Each medicine should be unique (name + dosage + form + manufacturer). 
+            For inventory management with multiple batches, use the <strong>Inventory Management</strong> section.
+          </div>
         </div>
 
         {/* Modal Content */}
         <div className="modal-content">
           {/* Input Form Section */}
           <div className="form-section">
-            <h3>{isEditMode ? 'Edit Product' : 'Add Product'}</h3>
+            <h3>{isEditMode ? 'Edit Medicine' : 'Add New Medicine'}</h3>
             {error && (
               <div className="error-message" style={{
                 background: '#fee',
@@ -457,7 +476,7 @@ const ManageProduct = ({ isVisible, onClose }) => {
 
               <div className="form-actions">
                 <button type="submit" className="add-btn" disabled={isLoading}>
-                  {isLoading ? 'Saving...' : (isEditMode ? 'Update Product' : 'Add Product')}
+                  {isLoading ? 'Saving...' : (isEditMode ? 'Update Medicine' : 'Add Medicine')}
                 </button>
                 <button type="button" className="clear-btn" onClick={clearForm} disabled={isLoading}>
                   {isEditMode ? 'Cancel Edit' : 'Clear Form'}
@@ -466,12 +485,12 @@ const ManageProduct = ({ isVisible, onClose }) => {
             </form>
           </div>
 
-          {/* Product Information Table Section */}
+          {/* Medicine Information Table Section */}
           <div className="table-section">
             <div className="table-header">
-              <h3>Product Information</h3>
+              <h3>Medicine Information</h3>
               <div className="table-info">
-                <small>Total Products: {products.length}</small>
+                <small>Total Medicines: {products.length}</small>
               </div>
             </div>
             
@@ -479,19 +498,29 @@ const ManageProduct = ({ isVisible, onClose }) => {
               <table className="products-table">
                 <thead>
                   <tr>
+                    <th>Medicine ID</th>
                     <th>Product Name</th>
                     <th>Dosage</th>
                     <th>Form</th>
                     <th>Manufacturer</th>
                     <th>Base Price</th>
                     <th>Category</th>
-                    <th>Image Path</th>
+                    <th>Total Stock</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {products.map((product, index) => (
                     <tr key={`product-${product.drug_id || index}`}>
+                      <td>
+                        <div className="medicine-id" style={{ 
+                          fontSize: '12px', 
+                          color: '#666',
+                          fontFamily: 'monospace'
+                        }}>
+                          #{product.drug_id}
+                        </div>
+                      </td>
                       <td>
                         <div className="product-name">{product.drug_name}</div>
                       </td>
@@ -521,8 +550,22 @@ const ManageProduct = ({ isVisible, onClose }) => {
                         </div>
                       </td>
                       <td>
-                        <div className="image-path" title={product.image_path}>
-                          {product.image_path || 'No image'}
+                        <div className="stock-info">
+                          <span style={{ 
+                            color: (product.total_stock || 0) > 0 ? '#059669' : '#dc2626',
+                            fontWeight: 'bold'
+                          }}>
+                            {product.total_stock || 0}
+                          </span>
+                          {product.batch_count > 0 && (
+                            <small style={{ 
+                              display: 'block', 
+                              color: '#666', 
+                              fontSize: '11px'
+                            }}>
+                              {product.batch_count} batch{product.batch_count !== 1 ? 'es' : ''}
+                            </small>
+                          )}
                         </div>
                       </td>
                       <td>
@@ -530,7 +573,7 @@ const ManageProduct = ({ isVisible, onClose }) => {
                           <button 
                             className="edit-btn"
                             onClick={() => handleEdit(product)}
-                            title="Edit Product"
+                            title="Edit Medicine"
                             disabled={isLoading}
                           >
                             ✏️
@@ -538,7 +581,7 @@ const ManageProduct = ({ isVisible, onClose }) => {
                           <button 
                             className="delete-btn"
                             onClick={() => handleDelete(product)}
-                            title="Delete Product"
+                            title="Delete Medicine"
                             disabled={isLoading}
                           >
                             🗑️
@@ -557,7 +600,7 @@ const ManageProduct = ({ isVisible, onClose }) => {
                   color: '#666',
                   fontStyle: 'italic'
                 }}>
-                  No products available. Add your first product using the form above.
+                  No medicines available. Add your first medicine using the form above.
                 </div>
               )}
             </div>
@@ -571,11 +614,11 @@ const ManageProduct = ({ isVisible, onClose }) => {
             <div className="delete-confirm-modal">
               <div className="delete-confirm-header">
                 <div className="delete-icon">🗑️</div>
-                <h3>Delete Product</h3>
+                <h3>Delete Medicine</h3>
               </div>
               
               <div className="delete-confirm-content">
-                <p>Are you sure you want to delete this product?</p>
+                <p>Are you sure you want to delete this medicine?</p>
                 {productToDelete && (
                   <div className="product-preview">
                     <div className="preview-image">
@@ -603,7 +646,7 @@ const ManageProduct = ({ isVisible, onClose }) => {
                   Cancel
                 </button>
                 <button className="confirm-delete-btn" onClick={confirmDelete}>
-                  Delete Product
+                  Delete Medicine
                 </button>
               </div>
             </div>
