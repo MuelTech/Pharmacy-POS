@@ -238,7 +238,10 @@ router.get('/:id', verifyToken, requireStaffOrAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     
+    console.log('Fetching order by ID:', id);
+    
     if (!id || isNaN(parseInt(id))) {
+      console.log('Invalid order ID provided:', id);
       return res.status(400).json({
         success: false,
         message: 'Invalid order ID'
@@ -258,31 +261,38 @@ router.get('/:id', verifyToken, requireStaffOrAdmin, async (req, res) => {
     `, [parseInt(id)]);
     
     if (orderRows.length === 0) {
+      console.log('Order not found for ID:', id);
       return res.status(404).json({
         success: false,
         message: 'Order not found'
       });
     }
     
+    console.log('Order found:', orderRows[0]);
+    
     // Get order details
     const [itemRows] = await pool.execute(`
-      SELECT od.*, m.drug_name, m.dosage, m.form, i.batch_id
+      SELECT od.*, m.drug_name, m.dosage, m.form
       FROM order_details od
       LEFT JOIN inventory i ON od.inventory_id = i.inventory_id
       LEFT JOIN medicines m ON i.drug_id = m.drug_id
       WHERE od.order_id = ?
     `, [parseInt(id)]);
     
+    console.log('Order items found:', itemRows.length, 'items');
+    
     const order = {
       ...orderRows[0],
       items: itemRows,
-      cashier_name: orderRows[0].cashier_name.trim() || 'Staff',
+      cashier_name: (orderRows[0].cashier_name || '').trim() || 'Staff',
       payment_info: {
         amount_paid: orderRows[0].amount_paid,
         change_amount: orderRows[0].change_amount,
         payment_type: orderRows[0].payment_type
       }
     };
+    
+    console.log('Returning order data:', order);
     
     res.json({
       success: true,
@@ -291,6 +301,7 @@ router.get('/:id', verifyToken, requireStaffOrAdmin, async (req, res) => {
     
   } catch (error) {
     console.error('Order fetch error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch order'
@@ -335,7 +346,7 @@ router.get('/', verifyToken, requireStaffOrAdmin, async (req, res) => {
     // Clean up cashier names and add payment info
     const cleanedRows = rows.map(row => ({
       ...row,
-      cashier_name: row.cashier_name.trim() || 'Staff',
+      cashier_name: (row.cashier_name || '').trim() || 'Staff',
       payment_info: {
         amount_paid: row.amount_paid,
         change_amount: row.change_amount,

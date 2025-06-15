@@ -1,17 +1,12 @@
 import React from 'react';
 import './Receipt.css';
 
-const Receipt = ({ isVisible, onClose, receiptData }) => {
+const Receipt = ({ isVisible, onClose, receiptData, loading = false }) => {
   // Debug logging
-  console.log('Receipt component rendered:', { isVisible, receiptData });
+  console.log('Receipt component rendered:', { isVisible, receiptData, loading });
 
   if (!isVisible) {
     console.log('Receipt not visible, returning null');
-    return null;
-  }
-
-  if (!receiptData) {
-    console.log('No receipt data, returning null');
     return null;
   }
 
@@ -27,6 +22,75 @@ const Receipt = ({ isVisible, onClose, receiptData }) => {
   const handleClose = () => {
     onClose();
   };
+
+  // Format date for display
+  const formatOrderDate = (dateString) => {
+    if (!dateString) return new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-GB', { hour12: false });
+    
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-GB', { hour12: false });
+  };
+
+  // Show loading state
+  if (loading) {
+    return (
+      <div 
+        className="receipt-modal-overlay" 
+        style={{ 
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 2000
+        }}
+      >
+        <div 
+          className="receipt-modal-content" 
+          style={{ 
+            backgroundColor: 'white', 
+            padding: '40px', 
+            borderRadius: '8px', 
+            textAlign: 'center'
+          }}
+        >
+          <div style={{ marginBottom: '20px' }}>Loading receipt...</div>
+          <div style={{ 
+            width: '40px', 
+            height: '40px', 
+            border: '4px solid #f3f3f3',
+            borderTop: '4px solid #3498db',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            margin: '0 auto'
+          }}></div>
+          <button 
+            onClick={handleClose} 
+            style={{ 
+              marginTop: '20px',
+              padding: '10px 15px', 
+              backgroundColor: '#dc3545', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '4px',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!receiptData) {
+    console.log('No receipt data, returning null');
+    return null;
+  }
 
   try {
     // Simple receipt component without external dependencies
@@ -114,7 +178,7 @@ const Receipt = ({ isVisible, onClose, receiptData }) => {
               </p>
               <p style={{ margin: '4px 0', display: 'flex', justifyContent: 'space-between' }}>
                 <span>Date:</span>
-                <span>{new Date().toLocaleDateString('en-GB')} {new Date().toLocaleTimeString('en-GB', { hour12: false })}</span>
+                <span>{formatOrderDate(receiptData?.orderDate)}</span>
               </p>
             </div>
 
@@ -183,7 +247,7 @@ const Receipt = ({ isVisible, onClose, receiptData }) => {
             </div>
 
             <div style={{ textAlign: 'center', borderTop: '1px dashed #ccc', paddingTop: '15px' }}>
-              <p style={{ margin: '0', fontSize: '12px' }}>Thank you for your business!</p>
+              <p style={{ margin: '0', fontSize: '12px' }}>Thank you for shopping with us!</p>
             </div>
           </div>
         </div>

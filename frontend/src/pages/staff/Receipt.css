@@ -5,33 +5,50 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.6);
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
-  backdrop-filter: blur(3px);
-  animation: receiptFadeIn 0.3s ease-out;
-}
-
-@keyframes receiptFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
 }
 
 .receipt-modal-content {
-  background: #f0f2f5;
+  background-color: white;
+  padding: 20px;
   border-radius: 8px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  width: auto;
-  min-width: 380px;
-  max-width: 420px;
-  animation: receiptSlideIn 0.4s ease-out;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: auto;
+  margin: 20px;
 }
 
-@keyframes receiptSlideIn {
-  from { transform: translateY(30px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Print styles */
+@media print {
+  .receipt-modal-overlay {
+    position: static;
+    background: none;
+    width: auto;
+    height: auto;
+  }
+  
+  .receipt-modal-content {
+    box-shadow: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    max-height: none;
+  }
+  
+  button {
+    display: none !important;
+  }
 }
 
 .receipt-actions-header {

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import ManageProduct from './ManageProduct';
 import InventoryModal from './InventoryModal';
 import ManageAccount from './ManageAccount';
+import Receipt from '../staff/Receipt';
 import { ordersAPI } from '../../services/api';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -36,6 +37,9 @@ const AdminDashboard = () => {
   const [showManageProduct, setShowManageProduct] = useState(false);
   const [showInventory, setShowInventory] = useState(false);
   const [showManageAccount, setShowManageAccount] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [receiptData, setReceiptData] = useState(null);
+  const [loadingReceipt, setLoadingReceipt] = useState(false);
 
   // State for API data
   const [metrics, setMetrics] = useState({
@@ -269,6 +273,112 @@ const AdminDashboard = () => {
   const formatDateForDisplay = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+  };
+
+  // Check if user is authenticated before making API calls
+  const checkAuthentication = () => {
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      alert('You are not logged in. Please log in to view receipts.');
+      return false;
+    }
+    return true;
+  };
+
+  // Handle viewing transaction receipt
+  const handleViewReceipt = async (transaction) => {
+    // Check authentication first
+    if (!checkAuthentication()) {
+      return;
+    }
+
+    try {
+      setLoadingReceipt(true);
+      setReceiptData(null); // Clear previous data
+      setShowReceiptModal(true);
+      
+      // Extract order ID from invoice number (remove '1703' prefix)
+      const orderId = parseInt(transaction.invoice.replace('1703', ''));
+      
+      console.log('Fetching receipt for order ID:', orderId, 'from invoice:', transaction.invoice);
+      
+      // Validate order ID
+      if (!orderId || isNaN(orderId)) {
+        throw new Error('Invalid order ID extracted from invoice number');
+      }
+      
+      // Fetch detailed order data
+      const response = await ordersAPI.getById(orderId);
+      
+      if (response.data.success) {
+        const orderData = response.data.data;
+        console.log('Order data received:', orderData);
+        
+        // Validate order data
+        if (!orderData || !orderData.items || orderData.items.length === 0) {
+          throw new Error('Order data is incomplete or has no items');
+        }
+        
+        // Format receipt data to match Receipt component expectations
+        const formattedReceiptData = {
+          invoiceNumber: transaction.invoice,
+          cashier: orderData.cashier_name || transaction.cashier,
+          orderDate: orderData.order_date,
+          orderItems: orderData.items.map(item => ({
+            drug_name: item.drug_name,
+            name: item.drug_name,
+            quantity: item.quantity,
+            base_price: item.unit_price,
+            price: item.unit_price
+          })),
+          calculations: {
+            subtotal: orderData.items.reduce((sum, item) => sum + (item.unit_price * item.quantity), 0),
+            discountAmount: orderData.discount || 0,
+            grossPrice: orderData.total_amount
+          },
+          paymentData: {
+            paid: orderData.payment_info?.amount_paid || orderData.total_amount,
+            change: orderData.payment_info?.change_amount || 0,
+            paymentType: orderData.payment_info?.payment_type || 'Cash'
+          }
+        };
+        
+        console.log('Formatted receipt data:', formattedReceiptData);
+        setReceiptData(formattedReceiptData);
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch order details');
+      }
+    } catch (error) {
+      console.error('Error fetching receipt:', error);
+      
+      // Show user-friendly error message
+      let errorMessage = 'Failed to load receipt details.';
+      
+      if (error.response?.status === 401) {
+        errorMessage = 'Your session has expired. Please log out and log in again to view receipts.';
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to view this receipt.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Receipt not found. This transaction may have been deleted.';
+      } else if (error.message?.includes('network') || error.message?.includes('fetch')) {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
+      setShowReceiptModal(false);
+      setReceiptData(null);
+    } finally {
+      setLoadingReceipt(false);
+    }
+  };
+
+  // Handle closing receipt modal
+  const handleCloseReceipt = () => {
+    setShowReceiptModal(false);
+    setReceiptData(null);
+    setLoadingReceipt(false);
   };
 
   // CSV Export Function
@@ -748,7 +858,7 @@ const AdminDashboard = () => {
                     <td>{transaction.method}</td>
                     <td>{transaction.cashier}</td>
                     <td>
-                      <button className="view-btn">🔍</button>
+                      <button className="view-btn" onClick={() => handleViewReceipt(transaction)}>🔍</button>
                     </td>
                   </tr>
                 ))}
@@ -804,6 +914,14 @@ const AdminDashboard = () => {
       <ManageAccount 
         isOpen={showManageAccount}
         onClose={() => setShowManageAccount(false)}
+      />
+
+      {/* Receipt Modal */}
+      <Receipt
+        isVisible={showReceiptModal}
+        onClose={handleCloseReceipt}
+        receiptData={receiptData}
+        loading={loadingReceipt}
       />
     </div>
   );
