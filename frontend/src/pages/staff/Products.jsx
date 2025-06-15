@@ -172,10 +172,10 @@ const Products = ({
                   </td>
                   <td className="product-stock">
                     <span style={{ 
-                      color: (product.stock_level || 0) > 10 ? '#059669' : 
-                             (product.stock_level || 0) > 0 ? '#d97706' : '#dc2626'
+                      color: (product.total_stock || 0) > 10 ? '#059669' : 
+                             (product.total_stock || 0) > 0 ? '#d97706' : '#dc2626'
                     }}>
-                      {product.stock_level || 0}
+                      {product.total_stock || 0}
                     </span>
                   </td>
                   <td className="product-expiry-date">

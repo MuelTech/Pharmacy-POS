@@ -51,12 +51,15 @@ const StaffDashboard = () => {
       setError(null);
       
       // Load products, categories, and pharmacist info in parallel
+      // For staff dashboard, only load products that have stock
       const [productsResponse, categoriesResponse] = await Promise.all([
-        productsAPI.getAll(),
+        productsAPI.getAll({ in_stock: 'true' }),
         productsAPI.getCategories()
       ]);
       
       if (productsResponse.data.success) {
+        console.log('Products loaded for staff dashboard:', productsResponse.data.data.length);
+        console.log('Sample product:', productsResponse.data.data[0]);
         setProducts(productsResponse.data.data);
       }
       
@@ -76,7 +79,8 @@ const StaffDashboard = () => {
   // Function to reload only products data (for post-transaction updates)
   const reloadProducts = useCallback(async () => {
     try {
-      const productsResponse = await productsAPI.getAll();
+      // For staff dashboard, only load products that have stock
+      const productsResponse = await productsAPI.getAll({ in_stock: 'true' });
       
       if (productsResponse.data.success) {
         setProducts(productsResponse.data.data);
@@ -106,12 +110,15 @@ const StaffDashboard = () => {
 
   // Memoized filtered products to prevent unnecessary re-renders
   const filteredProducts = useMemo(() => {
-    return products.filter(product => {
+    const filtered = products.filter(product => {
       const matchesSearch = product.drug_name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'All Categories' || 
         (product.category_name && product.category_name === selectedCategory);
-      return matchesSearch && matchesCategory && product.stock_level > 0;
+      const hasStock = product.total_stock > 0;
+      return matchesSearch && matchesCategory && hasStock;
     });
+    console.log('Filtered products for display:', filtered.length);
+    return filtered;
   }, [products, searchTerm, selectedCategory]);
 
   // Optimized add to order function
@@ -129,7 +136,7 @@ const StaffDashboard = () => {
           drug_id: product.drug_id,
           drug_name: product.drug_name,
           base_price: product.base_price,
-          stock_level: product.stock_level,
+          stock_level: product.total_stock,
           quantity: 1 
         }];
       }
@@ -479,12 +486,22 @@ const StaffDashboard = () => {
                   role="button"
                   aria-pressed="false"
                 >
-                  <div className={`product-image ${!product.image ? 'no-image' : ''}`}>
-                    {!product.image && <span>No Image</span>}
+                  <div className={`product-image ${!product.image_path ? 'no-image' : ''}`}>
+                    {product.image_path ? (
+                      <img 
+                        src={product.image_path} 
+                        alt={product.drug_name}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <span style={{ display: product.image_path ? 'none' : 'block' }}>No Image</span>
                   </div>
                   <div className="product-info">
                     <span className="product-name" title={product.drug_name}>{product.drug_name}</span>
-                    <span className="product-stock">Stock: {product.stock_level}</span>
+                    <span className="product-stock">Stock: {product.total_stock}</span>
                     <span className="product-price">PHP{product.base_price.toLocaleString()}</span>
                   </div>
                 </div>
