@@ -43,10 +43,10 @@ const Products = ({
         let bValue = b[sortConfig.key];
         
         // Handle different data types
-        if (sortConfig.key === 'base_price' || sortConfig.key === 'stock_level') {
+        if (sortConfig.key === 'base_price' || sortConfig.key === 'total_stock') {
           aValue = Number(aValue) || 0;
           bValue = Number(bValue) || 0;
-        } else if (sortConfig.key === 'expiry_date') {
+        } else if (sortConfig.key === 'earliest_expiry') {
           aValue = new Date(aValue || 0);
           bValue = new Date(bValue || 0);
         } else {
@@ -119,15 +119,15 @@ const Products = ({
                 </th>
                 <th 
                   className="sortable" 
-                  onClick={() => handleSort('stock_level')}
+                  onClick={() => handleSort('total_stock')}
                 >
-                  Stock {getSortIcon('stock_level')}
+                  Stock {getSortIcon('total_stock')}
                 </th>
                 <th 
                   className="sortable" 
-                  onClick={() => handleSort('expiry_date')}
+                  onClick={() => handleSort('earliest_expiry')}
                 >
-                  Expiry Date {getSortIcon('expiry_date')}
+                  Earliest Expiry {getSortIcon('earliest_expiry')}
                 </th>
                 <th 
                   className="sortable" 
@@ -179,7 +179,7 @@ const Products = ({
                     </span>
                   </td>
                   <td className="product-expiry-date">
-                    {product.expiry_date ? new Date(product.expiry_date).toLocaleDateString() : 'N/A'}
+                    {product.earliest_expiry ? new Date(product.earliest_expiry).toLocaleDateString() : 'N/A'}
                   </td>
                   <td className="product-category">{product.category_name || 'N/A'}</td>
                 </tr>
