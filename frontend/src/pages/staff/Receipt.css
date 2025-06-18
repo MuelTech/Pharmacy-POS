@@ -1,0 +1,240 @@
+/* Receipt Modal Styles */
+.receipt-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 2000;
+}
+
+.receipt-modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  max-width: 500px;
+  max-height: 80vh;
+  overflow: auto;
+  margin: 20px;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Print styles */
+@media print {
+  .receipt-modal-overlay {
+    position: static;
+    background: none;
+    width: auto;
+    height: auto;
+  }
+  
+  .receipt-modal-content {
+    box-shadow: none;
+    border: none;
+    margin: 0;
+    padding: 0;
+    max-width: none;
+    max-height: none;
+  }
+  
+  button {
+    display: none !important;
+  }
+}
+
+.receipt-actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #e9ecef;
+  border-bottom: 1px solid #dee2e6;
+  border-radius: 8px 8px 0 0;
+}
+
+.print-btn {
+  background-color: #5cb85c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.print-btn:hover {
+  background-color: #449d44;
+}
+
+.close-receipt-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6c757d;
+  cursor: pointer;
+  transition: color 0.2s, transform 0.2s;
+}
+
+.close-receipt-btn:hover {
+  color: #343a40;
+  transform: scale(1.1);
+}
+
+.receipt-container {
+  background: white;
+  padding: 25px;
+  margin: 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  color: #333;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.receipt-header-info {
+  text-align: center;
+  margin-bottom: 20px;
+  border-bottom: 1px dashed #ccc;
+  padding-bottom: 15px;
+}
+
+.pharmacy-logo {
+  margin-bottom: 10px;
+}
+
+.logo-circle {
+  width: 40px;
+  height: 40px;
+  background-color: #5cb85c;
+  color: white;
+  border-radius: 50%;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.pharmacy-name {
+  font-size: 22px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.pharmacy-address p {
+  margin: 2px 0;
+  font-size: 12px;
+}
+
+.receipt-transaction-info {
+  margin-bottom: 20px;
+  font-size: 12px;
+  border-bottom: 1px dashed #ccc;
+  padding-bottom: 15px;
+}
+
+.receipt-transaction-info p {
+  margin: 4px 0;
+  display: flex;
+  justify-content: space-between;
+}
+
+.receipt-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+  font-size: 12px;
+}
+
+.receipt-items-table th, .receipt-items-table td {
+  padding: 8px 0;
+  text-align: left;
+}
+
+.receipt-items-table thead {
+  border-bottom: 1px solid #333;
+}
+
+.receipt-items-table th:nth-child(2), .receipt-items-table td:nth-child(2) {
+  text-align: center;
+}
+.receipt-items-table th:nth-child(3), .receipt-items-table td:nth-child(3) {
+  text-align: right;
+}
+
+.receipt-totals {
+  border-top: 1px dashed #ccc;
+  padding-top: 15px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.total-row.total-final {
+  font-weight: bold;
+  font-size: 16px;
+  margin-top: 10px;
+  border-top: 1px solid #333;
+  padding-top: 10px;
+}
+
+.receipt-payment-info {
+  border-top: 1px dashed #ccc;
+  padding-top: 15px;
+  margin-bottom: 20px;
+  font-size: 12px;
+}
+
+.receipt-payment-info p {
+    margin: 4px 0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.receipt-footer {
+  text-align: center;
+  font-size: 12px;
+  border-top: 1px dashed #ccc;
+  padding-top: 15px;
+}
+
+@media print {
+  body, .receipt-modal-overlay {
+    background: white;
+  }
+  .receipt-actions-header, .close-receipt-btn {
+    display: none;
+  }
+  .receipt-modal-overlay {
+    align-items: flex-start;
+    overflow: visible;
+  }
+  .receipt-modal-content {
+    box-shadow: none;
+    border-radius: 0;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    animation: none;
+  }
+  .receipt-container {
+    margin: 0;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+  }
+} 

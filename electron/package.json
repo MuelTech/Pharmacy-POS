@@ -1,0 +1,17 @@
+{
+  "name": "pharmacy-system-electron",
+  "version": "1.0.0",
+  "description": "Pharmacy System Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "author": "Lemuel",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^36.4.0",
+    "electron-builder": "^25.1.8"
+  }
+}

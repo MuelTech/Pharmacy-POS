@@ -1,0 +1,861 @@
+.admin-dashboard {
+  font-family: 'Arial', sans-serif;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header Styles */
+.dashboard-header {
+  background: #a5d6a7;
+  padding: 8px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  flex-shrink: 0;
+  user-select: none;
+  min-height: 60px;
+  z-index: 100;
+}
+
+.header-left, .header-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.nav-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.5);
+}
+
+.logout-btn {
+  background: #f0ad4e;
+}
+
+.user-info {
+  font-weight: 500;
+  font-size: 14px;
+  padding: 8px 12px;
+  background: #449D44;
+  border-radius: 4px;
+  color: white;
+  white-space: nowrap;
+}
+
+.filter-info {
+  margin-left: auto;
+  color: #666;
+  font-style: italic;
+}
+
+.dashboard-header h1 {
+  color: #333;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+/* Metrics Container */
+.metrics-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  margin-bottom: 0;
+}
+
+.metric-card {
+  padding: 2rem 1.5rem;
+  border-radius: 8px;
+  color: white;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  min-width: 0; /* Allow shrinking */
+}
+
+.metric-card.sales {
+  background-color: #8bc34a;
+}
+
+.metric-card.transactions {
+  background-color: #ff9800;
+}
+
+.metric-card.items-sold {
+  background-color: #2196f3;
+}
+
+.metric-card.products {
+  background-color: #8bc34a;
+}
+
+.metric-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+  opacity: 0.9;
+}
+
+.metric-value {
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1;
+  word-break: break-all;
+}
+
+/* Filters Section */
+.filters-section {
+  padding: 1rem 2rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.filters-section h2 {
+  color: #333;
+  margin: 0 0 1rem 0;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.filters {
+  display: flex;
+  gap: 2rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filter-group label {
+  color: #666;
+  font-weight: 500;
+  min-width: 60px;
+  white-space: nowrap;
+}
+
+.filter-group select,
+.filter-group input {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  color: #333;
+  min-width: 120px;
+}
+
+.filter-group span {
+  color: #666;
+  margin: 0 0.5rem;
+}
+
+.filter-group input[type="date"] {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  color: #333;
+  font-family: inherit;
+  position: relative;
+  min-width: 140px;
+}
+
+.filter-group input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  border-radius: 4px;
+  margin-right: 2px;
+  opacity: 0.8;
+  filter: invert(0.4);
+}
+
+.filter-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  filter: invert(0.2);
+  background-color: #f0f0f0;
+}
+
+.filter-group input[type="date"]:focus {
+  border-color: #8bc34a;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(139, 195, 74, 0.2);
+}
+
+/* Content Panels */
+.content-panels {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 1rem;
+  padding: 1.5rem 2rem;
+  flex: 1;
+  min-height: 0; /* Allow shrinking */
+  overflow: hidden;
+}
+
+/* Products Panel */
+.products-panel {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.products-panel .panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.products-panel h3 {
+  color: #333;
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.products-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.limit-select {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  color: #333;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.limit-select:focus {
+  border-color: #8bc34a;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(139, 195, 74, 0.2);
+}
+
+.products-table {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  position: relative;
+}
+
+.products-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 600px; /* Minimum width to prevent cramping */
+}
+
+.products-table th {
+  background-color: #f8f9fa;
+  color: #666;
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #e9ecef;
+  position: sticky;
+  top: 0;
+}
+
+.products-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+  color: #333;
+}
+
+.products-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+/* Pagination Controls */
+.pagination-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.pagination-btn {
+  background-color: #8bc34a;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #7cb342;
+}
+
+.pagination-btn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.pagination-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.pagination-info span {
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.2rem;
+}
+
+.pagination-info small {
+  color: #666;
+  font-size: 0.8rem;
+}
+
+/* Transaction Details Panel */
+.transaction-details-panel {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+
+.panel-header h3 {
+  color: #333;
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.panel-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.transaction-count {
+  flex: 1;
+  min-width: 200px;
+}
+
+.transaction-count small {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.export-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.export-btn {
+  background-color: #f8f9fa;
+  color: #333;
+  border: 1px solid #ddd;
+  padding: 0.4rem 0.8rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  background-color: #f8f9fa;
+  border-color: #bbb;
+}
+
+.export-btn.csv {
+  background-color: #28a745;
+  color: white;
+  border-color: #28a745;
+}
+
+.export-btn.pdf {
+  background-color: #dc3545;
+  color: white;
+  border-color: #dc3545;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+  gap: 1rem;
+}
+
+.search-input-container {
+  display: flex;
+  align-items: center;
+}
+
+.search-bar input {
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px 0 0 4px;
+  width: 250px;
+  background-color: white;
+  color: #333;
+}
+
+.search-btn {
+  padding: 0.5rem 0.75rem;
+  background-color: #2196f3;
+  color: white;
+  border: 1px solid #2196f3;
+  border-radius: 0 4px 4px 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.search-btn:hover {
+  background-color: #1976d2;
+}
+
+/* Transactions Table */
+.transactions-table {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  position: relative;
+}
+
+.transactions-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 600px; /* Minimum width to prevent cramping */
+}
+
+.transactions-table th {
+  background-color: #f8f9fa;
+  color: #666;
+  padding: 0.75rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #e9ecef;
+  white-space: nowrap;
+  position: sticky;
+  top: 0;
+}
+
+.transactions-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.2s;
+}
+
+.transactions-table th.sortable:hover {
+  background-color: #e9ecef;
+}
+
+.transactions-table td {
+  padding: 0.75rem 0.5rem;
+  border-bottom: 1px solid #e9ecef;
+  color: #333;
+  white-space: nowrap;
+}
+
+.transactions-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.view-btn {
+  background-color: #2196f3;
+  color: white;
+  border: none;
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.view-btn:hover {
+  background-color: #1976d2;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 2s linear infinite;
+}
+
+.nav-btn {
+  padding: 8px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  white-space: nowrap;
+  user-select: none;
+  color: white;
+  background-color: #449d44;
+}
+
+/* Responsive Design */
+@media (max-width: 1400px) {
+  .content-panels {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .metrics-container {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 1200px) {
+  .content-panels {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .metrics-container {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+  
+  .search-bar input {
+    width: 200px;
+  }
+}
+
+@media (max-width: 768px) {
+  .metrics-container {
+    grid-template-columns: repeat(2, 1fr);
+    padding: 1rem;
+  }
+  
+  .dashboard-header {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: auto;
+  }
+  
+  .header-left, .header-right {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .nav-btn {
+    flex: 1;
+    font-size: 0.9rem;
+    min-width: 0;
+  }
+  
+  .filters {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .filter-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .filter-group select,
+  .filter-group input {
+    min-width: 140px;
+    flex: 1;
+  }
+  
+  .content-panels {
+    padding: 1rem;
+    grid-template-columns: 1fr;
+  }
+
+  /* Products panel responsive */
+  .products-panel .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .products-controls {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .pagination-controls {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .pagination-info {
+    order: -1;
+  }
+
+  .pagination-btn {
+    width: 100%;
+    max-width: 150px;
+  }
+
+  /* Transaction panel responsive */
+  .transaction-details-panel .panel-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .panel-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .export-buttons {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .search-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .search-input-container {
+    width: 100%;
+  }
+
+  .search-bar input {
+    width: 100%;
+    max-width: none;
+  }
+  
+  .transaction-count {
+    min-width: auto;
+    width: 100%;
+  }
+
+  /* Table responsiveness improvements */
+  .products-table table,
+  .transactions-table table {
+    min-width: 500px;
+  }
+  
+  .products-table th,
+  .products-table td,
+  .transactions-table th,
+  .transactions-table td {
+    min-width: 60px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .metrics-container {
+    grid-template-columns: 1fr;
+    padding: 0.5rem;
+  }
+  
+  .metric-value {
+    font-size: 1.8rem;
+  }
+  
+  .dashboard-header {
+    padding: 0.5rem;
+  }
+  
+  .nav-btn {
+    font-size: 0.8rem;
+    padding: 6px 8px;
+  }
+  
+  .content-panels {
+    padding: 0.5rem;
+  }
+  
+  .products-panel,
+  .transaction-details-panel {
+    padding: 1rem;
+  }
+  
+  .transactions-table,
+  .products-table {
+    font-size: 0.8rem;
+  }
+  
+  .transactions-table th,
+  .transactions-table td,
+  .products-table th,
+  .products-table td {
+    padding: 0.5rem 0.25rem;
+  }
+
+  /* Hide less important columns on very small screens */
+  .transactions-table th:nth-child(6),
+  .transactions-table td:nth-child(6) {
+    display: none; /* Hide Method column */
+  }
+
+  /* Table responsiveness improvements */
+  .products-table table,
+  .transactions-table table {
+    min-width: 400px;
+  }
+  
+  .products-table th,
+  .products-table td,
+  .transactions-table th,
+  .transactions-table td {
+    min-width: 50px;
+    padding: 0.4rem 0.2rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Electron specific optimizations */
+@media (min-width: 1200px) and (max-width: 1600px) {
+  .content-panels {
+    grid-template-columns: 0.8fr 1.2fr;
+  }
+  
+  .search-bar input {
+    width: 220px;
+  }
+}
+
+/* Large Electron window */
+@media (min-width: 1600px) {
+  .content-panels {
+    grid-template-columns: 1fr 1.5fr;
+    max-width: 1800px;
+    margin: 0 auto;
+  }
+  
+  .metrics-container {
+    max-width: 1800px;
+    margin: 0 auto;
+  }
+  
+  .filters-section {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding-left: 2rem;
+    padding-right: 2rem;
+  }
+}
+
+/* Table responsiveness improvements */
+.products-table::-webkit-scrollbar,
+.transactions-table::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.products-table::-webkit-scrollbar-track,
+.transactions-table::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.products-table::-webkit-scrollbar-thumb,
+.transactions-table::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.products-table::-webkit-scrollbar-thumb:hover,
+.transactions-table::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Ensure tables don't break layout */
+.products-table table,
+.transactions-table table {
+  min-width: 600px; /* Minimum width to prevent cramping */
+}
+
+/* Better mobile table handling */
+@media (max-width: 768px) {
+  .products-table table,
+  .transactions-table table {
+    min-width: 500px;
+  }
+  
+  .products-table th,
+  .products-table td,
+  .transactions-table th,
+  .transactions-table td {
+    min-width: 60px;
+    font-size: 0.85rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .products-table table,
+  .transactions-table table {
+    min-width: 400px;
+  }
+  
+  .products-table th,
+  .products-table td,
+  .transactions-table th,
+  .transactions-table td {
+    min-width: 50px;
+    padding: 0.4rem 0.2rem;
+    font-size: 0.8rem;
+  }
+  
+  /* Hide less important columns on very small screens */
+  .transactions-table th:nth-child(6),
+  .transactions-table td:nth-child(6) {
+    display: none; /* Hide Method column */
+  }
+}

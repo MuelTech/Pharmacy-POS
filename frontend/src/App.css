@@ -1,0 +1,63 @@
+/* App.css - Global styles for Pharmacy System */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.App {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Utility classes */
+.text-primary-custom {
+  color: #28a745 !important;
+}
+
+.bg-primary-custom {
+  background-color: #28a745 !important;
+}
+
+.border-primary-custom {
+  border-color: #28a745 !important;
+}
+
+/* Override Bootstrap focus styles */
+.btn:focus,
+.form-control:focus {
+  box-shadow: none;
+}
+
+/* Smooth transitions for all interactive elements */
+button,
+input,
+select,
+textarea {
+  transition: all 0.3s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #28a745;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #218838;
+}
