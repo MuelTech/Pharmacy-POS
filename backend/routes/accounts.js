@@ -156,8 +156,8 @@ router.post('/',
       .isEmail()
       .withMessage('Please enter a valid email address'),
     body('phoneNumber')
-      .matches(/^\d{3}-\d{3}-\d{4}$/)
-      .withMessage('Phone number must be in format: 123-456-7890'),
+      .matches(/^(\+63|0)9\d{2} \d{3} \d{4}$/)
+      .withMessage('Phone number must be in format: +63 9XX XXX XXXX or 09XX XXX XXXX'),
     body('licenseNumber')
       .trim()
       .isLength({ min: 5 })
@@ -303,8 +303,8 @@ router.put('/:id',
       .isEmail()
       .withMessage('Please enter a valid email address'),
     body('phoneNumber')
-      .matches(/^\d{3}-\d{3}-\d{4}$/)
-      .withMessage('Phone number must be in format: 123-456-7890'),
+      .matches(/^(\+63|0)9\d{2} \d{3} \d{4}$/)
+      .withMessage('Phone number must be in format: +63 9XX XXX XXXX or 09XX XXX XXXX'),
     body('licenseNumber')
       .trim()
       .isLength({ min: 5 })
