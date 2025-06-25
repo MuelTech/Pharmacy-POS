@@ -5,6 +5,7 @@ import { productsAPI } from '../services/api';
 // Session storage key to track if notification was shown this login
 const NOTIFICATION_SHOWN_KEY = 'lowStockNotificationShown';
 const LOGIN_SESSION_KEY = 'loginSessionId';
+const USER_LOGIN_KEY = 'auth_token'; // Use the auth token as session identifier
 
 /**
  * Custom hook to manage low stock notifications
@@ -15,43 +16,43 @@ export const useLowStockNotification = () => {
   const [lowStockProducts, setLowStockProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Generate or get current session ID
-  const getCurrentSessionId = useCallback(() => {
-    let sessionId = sessionStorage.getItem(LOGIN_SESSION_KEY);
-    if (!sessionId) {
-      sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-      sessionStorage.setItem(LOGIN_SESSION_KEY, sessionId);
-    }
-    return sessionId;
+  // Get current login session identifier using auth token
+  const getCurrentLoginSession = useCallback(() => {
+    const authToken = localStorage.getItem(USER_LOGIN_KEY);
+    return authToken ? `login_${authToken.slice(-10)}` : null; // Use last 10 chars of token as session ID
   }, []);
 
-  // Check if notification was already shown this session
+  // Check if notification was already shown for this login session
   const wasNotificationShown = useCallback(() => {
-    const currentSessionId = getCurrentSessionId();
-    const shownSessionId = sessionStorage.getItem(NOTIFICATION_SHOWN_KEY);
-    return shownSessionId === currentSessionId;
-  }, [getCurrentSessionId]);
+    const currentSession = getCurrentLoginSession();
+    if (!currentSession) return false; // No valid session
+    
+    const shownForSession = sessionStorage.getItem(NOTIFICATION_SHOWN_KEY);
+    return shownForSession === currentSession;
+  }, [getCurrentLoginSession]);
 
-  // Mark notification as shown for this session
+  // Mark notification as shown for this login session
   const markNotificationShown = useCallback(() => {
-    const currentSessionId = getCurrentSessionId();
-    sessionStorage.setItem(NOTIFICATION_SHOWN_KEY, currentSessionId);
-  }, [getCurrentSessionId]);
+    const currentSession = getCurrentLoginSession();
+    if (currentSession) {
+      sessionStorage.setItem(NOTIFICATION_SHOWN_KEY, currentSession);
+    }
+  }, [getCurrentLoginSession]);
 
   // Check for low stock products
   const checkLowStockProducts = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      // Fetch all products with inventory data
-      const response = await productsAPI.getAll({ staff_view: 'true' });
+      // Use the dedicated low stock check endpoint that aggregates stock properly
+      const response = await productsAPI.getLowStockCheck();
       
       if (response.data.success) {
         const products = response.data.data;
         
-        // Filter products that are low on stock
+        // Filter products that are low on stock based on total aggregated stock
         const lowStock = products.filter(product => {
-          const currentStock = product.total_stock || product.stock_level || 0;
+          const currentStock = product.total_stock || 0;
           const reorderLevel = product.reorder_level || 0;
           return isLowStock(currentStock, reorderLevel);
         });
@@ -86,15 +87,44 @@ export const useLowStockNotification = () => {
     setShowNotification(false);
   }, []);
 
-  // Manual trigger for checking low stock (e.g., after transactions)
+  // Manual trigger for checking low stock (e.g., after transactions or inventory updates)
+  // This will NOT show notification again in the same session - just updates the data
   const recheckLowStock = useCallback(async () => {
-    await checkLowStockProducts();
-  }, [checkLowStockProducts]);
+    try {
+      setIsLoading(true);
+      const response = await productsAPI.getLowStockCheck();
+      
+      if (response.data.success) {
+        const products = response.data.data;
+        const lowStock = products.filter(product => {
+          const currentStock = product.total_stock || 0;
+          const reorderLevel = product.reorder_level || 0;
+          return isLowStock(currentStock, reorderLevel);
+        });
+        
+        // Only update the products list, don't show notification again
+        setLowStockProducts(lowStock);
+      }
+    } catch (error) {
+      console.error('Failed to recheck low stock products:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Force recheck low stock and reset session (useful ONLY after inventory restocking by admin)
+  const forceRecheckLowStock = useCallback(async () => {
+    // Only clear notification flag and show again if there are NEW low stock items
+    const currentSession = getCurrentLoginSession();
+    if (currentSession) {
+      sessionStorage.removeItem(NOTIFICATION_SHOWN_KEY);
+      await checkLowStockProducts();
+    }
+  }, [checkLowStockProducts, getCurrentLoginSession]);
 
   // Reset notification for new session (useful for logout/login)
   const resetNotificationForNewSession = useCallback(() => {
     sessionStorage.removeItem(NOTIFICATION_SHOWN_KEY);
-    sessionStorage.removeItem(LOGIN_SESSION_KEY);
   }, []);
 
   return {
@@ -104,6 +134,7 @@ export const useLowStockNotification = () => {
     lowStockCount: lowStockProducts.length,
     isLoading,
     recheckLowStock,
+    forceRecheckLowStock,
     resetNotificationForNewSession
   };
 }; 

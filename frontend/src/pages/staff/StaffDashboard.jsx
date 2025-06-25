@@ -37,7 +37,9 @@ const StaffDashboard = () => {
     closeNotification,
     lowStockProducts,
     lowStockCount,
-    resetNotificationForNewSession
+    resetNotificationForNewSession,
+    recheckLowStock,
+    forceRecheckLowStock
   } = useLowStockNotification();
 
   // Fetch pharmacist information
@@ -258,6 +260,11 @@ const StaffDashboard = () => {
         
         // Reload products data to reflect updated stock levels
         await reloadProducts();
+        
+        // Update low stock data after transaction (without showing notification again)
+        setTimeout(() => {
+          recheckLowStock();
+        }, 1000); // Delay to ensure stock updates are complete
         
         console.log('Receipt modal should now be visible');
       } else {

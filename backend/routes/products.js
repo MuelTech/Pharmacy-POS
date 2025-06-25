@@ -157,6 +157,51 @@ router.get('/categories', verifyToken, requireStaffOrAdmin, async (req, res) => 
   }
 });
 
+// Get low stock products for notifications (Staff/Admin access)
+router.get('/low-stock-check', verifyToken, requireStaffOrAdmin, async (req, res) => {
+  try {
+    // Get aggregated stock levels per medicine for accurate low stock detection
+    const query = `
+      SELECT 
+        m.drug_id,
+        m.drug_name,
+        m.dosage,
+        m.form,
+        m.manufacturer,
+        m.base_price,
+        m.category_id,
+        m.image_path,
+        c.category_name,
+        COALESCE(SUM(i.stock_level), 0) as total_stock,
+        MIN(i.expiry_date) as earliest_expiry,
+        -- Use the highest reorder level from all batches for this medicine
+        COALESCE(MAX(i.reorder_level), 0) as reorder_level,
+        COUNT(i.inventory_id) as batch_count
+      FROM medicines m
+      LEFT JOIN inventory i ON m.drug_id = i.drug_id
+      LEFT JOIN categories c ON m.category_id = c.category_id
+      WHERE 1=1
+      GROUP BY m.drug_id, m.drug_name, m.dosage, m.form, m.manufacturer, m.base_price, m.category_id, m.image_path, c.category_name
+      HAVING batch_count > 0
+      ORDER BY m.drug_name ASC
+    `;
+    
+    const [rows] = await pool.execute(query);
+    
+    res.json({
+      success: true,
+      data: rows
+    });
+    
+  } catch (error) {
+    console.error('Low stock check error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to check low stock products'
+    });
+  }
+});
+
 // Get product by ID (Staff/Admin access)
 router.get('/:id', verifyToken, requireStaffOrAdmin, async (req, res) => {
   try {

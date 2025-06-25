@@ -68,7 +68,8 @@ const AdminDashboard = () => {
     closeNotification,
     lowStockProducts,
     lowStockCount,
-    resetNotificationForNewSession
+    resetNotificationForNewSession,
+    forceRecheckLowStock
   } = useLowStockNotification();
 
   // Load dashboard data
@@ -619,14 +620,7 @@ const AdminDashboard = () => {
             <span className="icon">👤</span>
             Account
           </button>
-          <button 
-            className="nav-btn products-btn"
-            onClick={handleSettingsClick}
-            tabIndex="0"
-          >
-            <span className="icon">⚙️</span>
-            Settings
-          </button>
+          
         </div>
         <div className="header-right">
           <span className="user-info">👤 {user?.username}</span>

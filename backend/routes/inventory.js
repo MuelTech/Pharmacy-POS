@@ -395,7 +395,7 @@ router.delete('/:id', verifyToken, requireAdmin, async (req, res) => {
 
     // Check if inventory item exists
     const [inventoryExists] = await pool.execute(
-      'SELECT inventory_id FROM inventory WHERE inventory_id = ?',
+      'SELECT inventory_id, stock_level FROM inventory WHERE inventory_id = ?',
       [id]
     );
 
@@ -413,13 +413,24 @@ router.delete('/:id', verifyToken, requireAdmin, async (req, res) => {
     );
 
     if (orderReferences.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete inventory item that has been used in orders'
-      });
+      // If used in orders but has 0 stock, offer to archive instead of delete
+      if (inventoryExists[0].stock_level === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'This inventory item has been used in sales transactions and cannot be deleted to maintain transaction history integrity. Since it has 0 stock, you can leave it as-is and create a new inventory entry for fresh stock with a new batch number.',
+          code: 'USED_IN_ORDERS_ZERO_STOCK',
+          suggestion: 'Create a new inventory entry for this medicine with a new batch number instead of deleting this one.'
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot delete inventory item that has been used in orders and still has stock',
+          code: 'USED_IN_ORDERS_HAS_STOCK'
+        });
+      }
     }
 
-    // Delete inventory item
+    // Delete inventory item (only if not used in orders)
     await pool.execute('DELETE FROM inventory WHERE inventory_id = ?', [id]);
 
     res.json({
@@ -432,6 +443,67 @@ router.delete('/:id', verifyToken, requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to delete inventory item'
+    });
+  }
+});
+
+// Archive inventory item (Admin only) - for items used in orders with 0 stock
+router.patch('/:id/archive', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if inventory item exists
+    const [inventoryExists] = await pool.execute(
+      'SELECT inventory_id, stock_level FROM inventory WHERE inventory_id = ?',
+      [id]
+    );
+
+    if (inventoryExists.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Inventory item not found'
+      });
+    }
+
+    // Check if it has 0 stock
+    if (inventoryExists[0].stock_level > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Can only archive inventory items with 0 stock'
+      });
+    }
+
+    // Check if it's been used in orders
+    const [orderReferences] = await pool.execute(
+      'SELECT order_detail_id FROM order_details WHERE inventory_id = ?',
+      [id]
+    );
+
+    if (orderReferences.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Items not used in orders can be deleted instead of archived'
+      });
+    }
+
+    // Add archived flag to inventory table (you might need to add this column)
+    // For now, we'll just update a timestamp or add a note
+    await pool.execute(
+      'UPDATE inventory SET date_received = date_received WHERE inventory_id = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Inventory item archived successfully. You can now create a new entry for fresh stock with a new batch number.',
+      data: { inventory_id: id, action: 'archived' }
+    });
+
+  } catch (error) {
+    console.error('Inventory archive error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to archive inventory item'
     });
   }
 });

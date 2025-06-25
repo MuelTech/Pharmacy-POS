@@ -54,6 +54,7 @@ export const productsAPI = {
   getAll: (params = {}) => api.get('/products', { params }),
   getById: (id) => api.get(`/products/${id}`),
   getCategories: () => api.get('/products/categories'),
+  getLowStockCheck: () => api.get('/products/low-stock-check'),
   create: (productData) => api.post('/products', productData),
   update: (id, productData) => api.put(`/products/${id}`, productData),
   delete: (id) => api.delete(`/products/${id}`),
@@ -88,6 +89,7 @@ export const inventoryAPI = {
   create: (inventoryData) => api.post('/inventory', inventoryData),
   update: (id, inventoryData) => api.put(`/inventory/${id}`, inventoryData),
   delete: (id) => api.delete(`/inventory/${id}`),
+  archive: (id) => api.patch(`/inventory/${id}/archive`),
   updateStock: (id, stockData) => api.patch(`/inventory/${id}/stock`, stockData),
 };
 

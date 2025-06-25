@@ -2,8 +2,11 @@ import React, { useState, useMemo, useEffect } from 'react';
 import './InventoryModal.css';
 import SelectMedicineModal from './SelectMedicineModal';
 import { inventoryAPI, productsAPI } from '../../services/api';
+import { useLowStockNotification } from '../../hooks/useLowStockNotification';
 
 const InventoryModal = ({ isOpen, onClose }) => {
+  // Low stock notification hook for triggering recheck after inventory changes
+  const { forceRecheckLowStock } = useLowStockNotification();
   // Form state for adding new inventory
   const [formData, setFormData] = useState({
     batch_number: '',
@@ -148,6 +151,11 @@ const InventoryModal = ({ isOpen, onClose }) => {
       clearForm();
       await fetchInventoryData();
       
+      // Force recheck low stock notifications after inventory changes
+      setTimeout(() => {
+        forceRecheckLowStock();
+      }, 500); // Small delay to ensure data is updated
+      
       // Show success message
       setShowSuccessPopup(true);
       setTimeout(() => setShowSuccessPopup(false), 3000);
@@ -288,6 +296,8 @@ const InventoryModal = ({ isOpen, onClose }) => {
   const confirmDelete = async () => {
     if (inventoryToDelete) {
       setIsLoading(true);
+      setError(''); // Clear any previous errors
+      
       try {
         const response = await inventoryAPI.delete(inventoryToDelete.inventory_id);
         if (response.data.success) {
@@ -299,8 +309,17 @@ const InventoryModal = ({ isOpen, onClose }) => {
           setSuccessMessage('Inventory item deleted successfully!');
           setShowSuccessPopup(true);
           
+          // Close the delete modal
+          setShowDeleteConfirm(false);
+          setInventoryToDelete(null);
+          
           // Refresh data
           await fetchInventoryData();
+          
+          // Force recheck low stock notifications after deletion
+          setTimeout(() => {
+            forceRecheckLowStock();
+          }, 500); // Small delay to ensure data is updated
           
           // Auto-hide success popup after 3 seconds
           setTimeout(() => {
@@ -309,13 +328,36 @@ const InventoryModal = ({ isOpen, onClose }) => {
         }
       } catch (error) {
         console.error('Error deleting inventory item:', error);
-        setError(error.response?.data?.message || 'Failed to delete inventory item. Please try again.');
+        
+        // Enhanced error handling for new batch management scenarios
+        let errorMessage = 'Failed to delete inventory item. Please try again.';
+        
+        if (error.response?.status === 400) {
+          const errorData = error.response.data;
+          
+          if (errorData.code === 'USED_IN_ORDERS_ZERO_STOCK') {
+            // Special case: item used in orders but has 0 stock
+            errorMessage = `This inventory item cannot be deleted because it's linked to sales history. Since it has 0 stock, leave it as-is and create a new inventory entry with a different batch number for fresh stock.`;
+          } else if (errorData.code === 'USED_IN_ORDERS_HAS_STOCK') {
+            // Item used in orders and still has stock
+            errorMessage = 'Cannot delete inventory items that have been used in sales and still have stock.';
+          } else {
+            // Use the server message as fallback
+            errorMessage = errorData.message || 'This inventory item cannot be deleted.';
+          }
+        } else if (error.response?.status === 404) {
+          errorMessage = 'Inventory item not found. It may have already been deleted.';
+        } else if (error.response?.status === 403) {
+          errorMessage = 'You do not have permission to delete inventory items.';
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        }
+        
+        // Set error and keep the modal open to show the error
+        setError(errorMessage);
       } finally {
         setIsLoading(false);
       }
-      
-      setShowDeleteConfirm(false);
-      setInventoryToDelete(null);
     }
   };
 
@@ -323,6 +365,7 @@ const InventoryModal = ({ isOpen, onClose }) => {
   const cancelDelete = () => {
     setShowDeleteConfirm(false);
     setInventoryToDelete(null);
+    setError(''); // Clear any error messages
   };
 
   // Handle medicine selection from modal
@@ -369,7 +412,7 @@ const InventoryModal = ({ isOpen, onClose }) => {
                 border: '1px solid #bbdefb',
                 fontSize: '14px'
               }}>
-                💡 <strong>Tip:</strong> You can add multiple inventory entries for the same medicine with different batch numbers, expiry dates, and stock levels for proper batch tracking.
+                💡 <strong>Batch Management:</strong> Each inventory entry represents a unique batch of medicine. You can have multiple entries for the same medicine with different batch numbers, expiry dates, and stock levels. This allows proper tracking of medicine batches and maintains sales history integrity.
               </div>
             )}
             {error && (
@@ -676,6 +719,20 @@ const InventoryModal = ({ isOpen, onClose }) => {
               </div>
               
               <div className="delete-confirm-content">
+                {error && (
+                  <div className="error-message" style={{
+                    background: '#fee',
+                    color: '#c33',
+                    padding: '10px',
+                    borderRadius: '4px',
+                    marginBottom: '15px',
+                    border: '1px solid #fcc',
+                    fontSize: '14px'
+                  }}>
+                    <strong>❌ Error:</strong> {error}
+                  </div>
+                )}
+                
                 <p>Are you sure you want to delete this inventory item?</p>
                 {inventoryToDelete && (
                   <div className="inventory-preview">
@@ -688,14 +745,25 @@ const InventoryModal = ({ isOpen, onClose }) => {
                 <p className="warning-text">
                   <strong>⚠️ This action cannot be undone.</strong>
                 </p>
+                <div className="info-note" style={{
+                  background: '#fff3cd',
+                  color: '#856404',
+                  padding: '10px',
+                  borderRadius: '4px',
+                  marginTop: '10px',
+                  border: '1px solid #ffeaa7',
+                  fontSize: '13px'
+                }}>
+                  <strong>💡 Tip:</strong> If you need to restock this medicine with a new batch, create a new inventory entry instead. Items used in sales cannot be deleted to maintain transaction history.
+                </div>
               </div>
               
               <div className="delete-confirm-actions">
-                <button className="cancel-delete-btn" onClick={cancelDelete}>
+                <button className="cancel-delete-btn" onClick={cancelDelete} disabled={isLoading}>
                   Cancel
                 </button>
-                <button className="confirm-delete-btn" onClick={confirmDelete}>
-                  Delete Item
+                <button className="confirm-delete-btn" onClick={confirmDelete} disabled={isLoading}>
+                  {isLoading ? 'Deleting...' : 'Delete Item'}
                 </button>
               </div>
             </div>
