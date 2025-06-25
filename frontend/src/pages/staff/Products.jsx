@@ -55,7 +55,7 @@ const Products = ({
     
     // Filter by search term
     if (searchTerm.trim()) {
-      filtered = products.filter(product => 
+      filtered = productsToUse.filter(product => 
         (product.drug_name && product.drug_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (product.manufacturer && product.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()))
