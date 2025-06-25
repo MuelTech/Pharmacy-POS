@@ -183,9 +183,9 @@ const StaffDashboard = () => {
   const calculations = useMemo(() => {
     const totalItems = orderItems.reduce((sum, item) => sum + item.quantity, 0);
     const subtotal = orderItems.reduce((sum, item) => sum + (item.base_price * item.quantity), 0);
-    const discountAmount = discount ? subtotal * 0.20 : 0;
+    const discountAmount = discount ? Math.round(subtotal * 0.20 * 100) / 100 : 0;
     const taxRate = 0.12;
-    const grossPrice = (subtotal - discountAmount) * (1 + taxRate);
+    const grossPrice = Math.round((subtotal - discountAmount) * (1 + taxRate) * 100) / 100;
     
     return { totalItems, subtotal, discountAmount, grossPrice };
   }, [orderItems, discount]);

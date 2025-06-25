@@ -11,10 +11,10 @@ const isDev = process.argv.includes('--dev');
 function createWindow() {
   // Create the browser window
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1600,
+    height: 950,
+    minWidth: 1000,
+    minHeight: 650,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

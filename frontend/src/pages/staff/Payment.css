@@ -20,6 +20,7 @@
   max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
+  min-width: 320px;
 }
 
 .payment-modal-header {
@@ -172,6 +173,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
 }
 
 .number-pad button:hover {
@@ -192,6 +194,10 @@
 .number-pad .ac-btn:hover {
   background: #c0392b;
   border-color: #c0392b;
+}
+
+.number-pad .ac-btn-wide {
+  grid-column: span 3;
 }
 
 .number-pad .clear-btn {

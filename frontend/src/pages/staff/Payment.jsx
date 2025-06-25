@@ -52,10 +52,16 @@ const Payment = ({
 
   // Payment modal functions
   const handleNumberPadClick = useCallback((number) => {
-    if (number === 'AC') {
-      setPaymentAmount('');
-    } else if (number === 'backspace') {
+    if (number === 'backspace') {
       setPaymentAmount(prev => prev.slice(0, -1));
+    } else if (number === '.') {
+      // Only add decimal point if there isn't one already
+      setPaymentAmount(prev => {
+        if (prev.includes('.')) {
+          return prev;
+        }
+        return prev + '.';
+      });
     } else {
       setPaymentAmount(prev => prev + number);
     }
@@ -157,9 +163,9 @@ const Payment = ({
             <button onClick={() => handleNumberPadClick('7')}>7</button>
             <button onClick={() => handleNumberPadClick('8')}>8</button>
             <button onClick={() => handleNumberPadClick('9')}>9</button>
-            <button className="clear-btn" onClick={() => handleNumberPadClick('backspace')}>⌫</button>
+            <button className="dot-btn" onClick={() => handleNumberPadClick('.')}>.</button>
             <button onClick={() => handleNumberPadClick('0')}>0</button>
-            <button className="ac-btn" onClick={() => handleNumberPadClick('AC')}>AC</button>
+            <button className="clear-btn" onClick={() => handleNumberPadClick('backspace')}>⌫</button>
           </div>
 
           {/* Action Buttons */}
