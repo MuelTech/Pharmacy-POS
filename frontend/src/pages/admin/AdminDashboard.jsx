@@ -441,6 +441,20 @@ const AdminDashboard = () => {
   };
 
   // PDF Export Function
+  // Generate filename for dashboard PDF export
+  const generateDashboardPDFFilename = () => {
+    const now = new Date();
+    const formattedDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const formattedTime = now.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS format
+    
+    // Create date range string
+    const start = startDate.replace(/-/g, '');
+    const end = endDate.replace(/-/g, '');
+    const cashier = selectedCashier === 'all' ? 'AllCashiers' : selectedCashier.replace(/\s+/g, '');
+    
+    return `TransactionReport_${start}-${end}_${cashier}_${formattedDate}_${formattedTime}`;
+  };
+
   const exportToPDF = () => {
     try {
       console.log('PDF Export started');
@@ -518,8 +532,8 @@ const AdminDashboard = () => {
 
       console.log('PDF generated successfully');
 
-      // Save the PDF
-      const fileName = `transactions_${startDate}_to_${endDate}.pdf`;
+      // Save the PDF with custom filename
+      const fileName = `${generateDashboardPDFFilename()}.pdf`;
       doc.save(fileName);
       
       console.log('PDF export completed successfully');

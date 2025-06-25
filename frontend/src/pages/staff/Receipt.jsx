@@ -1,4 +1,6 @@
 import React from 'react';
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 import './Receipt.css';
 
 const Receipt = ({ isVisible, onClose, receiptData, loading = false }) => {
@@ -10,25 +12,217 @@ const Receipt = ({ isVisible, onClose, receiptData, loading = false }) => {
     return null;
   }
 
-  const handlePrint = () => {
-    try {
-      window.print();
-    } catch (error) {
-      console.error('Print error:', error);
-      alert('Print function not available');
-    }
-  };
-
-  const handleClose = () => {
-    onClose();
-  };
-
   // Format date for display
   const formatOrderDate = (dateString) => {
     if (!dateString) return new Date().toLocaleDateString('en-GB') + ' ' + new Date().toLocaleTimeString('en-GB', { hour12: false });
     
     const date = new Date(dateString);
     return date.toLocaleDateString('en-GB') + ' ' + date.toLocaleTimeString('en-GB', { hour12: false });
+  };
+
+  // Generate filename for PDF export
+  const generateReceiptFilename = () => {
+    const invoiceNumber = receiptData?.invoiceNumber || 'N/A';
+    const date = receiptData?.orderDate ? new Date(receiptData.orderDate) : new Date();
+    const formattedDate = date.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const formattedTime = date.toTimeString().split(' ')[0].replace(/:/g, '-'); // HH-MM-SS format
+    
+    return `Receipt_${invoiceNumber}_${formattedDate}_${formattedTime}`;
+  };
+
+  const handlePrint = () => {
+    try {
+      console.log('PDF Export started for receipt');
+      console.log('Receipt data:', receiptData);
+      
+      // Create PDF with smaller receipt-like dimensions
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [80, 200] // Thermal receipt width (80mm) with flexible height
+      });
+      
+      let currentY = 10;
+      
+      // Add pharmacy header
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(16);
+      doc.text('PHARMALAT', 40, currentY, { align: 'center' });
+      currentY += 8;
+      
+      // Add pharmacy details
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(8);
+      doc.text('123 MANILA, PHILIPPINES', 40, currentY, { align: 'center' });
+      currentY += 4;
+      doc.text('Tel: 0800 000 000', 40, currentY, { align: 'center' });
+      currentY += 4;
+      doc.text('VAT No: 10000000', 40, currentY, { align: 'center' });
+      currentY += 6;
+      
+      // Add dashed line
+      doc.setDrawColor(128, 128, 128); // Light gray color
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(5, currentY, 75, currentY);
+      doc.setLineDashPattern([], 0);
+      doc.setDrawColor(0, 0, 0); // Reset to black
+      currentY += 6;
+      
+      // Add transaction info
+      doc.setFontSize(8);
+      doc.text(`Invoice: ${receiptData?.invoiceNumber || 'N/A'}`, 5, currentY);
+      currentY += 4;
+      doc.text(`Cashier: ${receiptData?.cashier || 'Staff'}`, 5, currentY);
+      currentY += 4;
+      doc.text(`Date: ${formatOrderDate(receiptData?.orderDate)}`, 5, currentY);
+      currentY += 6;
+      
+      // Add dashed line
+      doc.setDrawColor(128, 128, 128); // Light gray color
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(5, currentY, 75, currentY);
+      doc.setLineDashPattern([], 0);
+      doc.setDrawColor(0, 0, 0); // Reset to black
+      currentY += 6;
+      
+      // Add items header
+      doc.setFont('courier', 'bold');
+      doc.text('ITEM', 5, currentY);
+      doc.text('QTY', 50, currentY, { align: 'center' });
+      doc.text('PRICE', 75, currentY, { align: 'right' });
+      currentY += 4;
+      
+      // Add line under header
+      doc.setDrawColor(128, 128, 128); // Light gray color
+      doc.line(5, currentY, 75, currentY);
+      doc.setDrawColor(0, 0, 0); // Reset to black
+      currentY += 4;
+      
+      // Add items
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(7);
+      
+      receiptData?.orderItems?.forEach(item => {
+        const itemName = item.drug_name || item.name || 'Unknown Item';
+        const quantity = item.quantity || 0;
+        const price = ((item.base_price || item.price || 0) * quantity);
+        
+        // Handle long item names by wrapping
+        const maxWidth = 40;
+        const splitText = doc.splitTextToSize(itemName, maxWidth);
+        
+        // Print item name (possibly multiline)
+        doc.text(splitText, 5, currentY);
+        const itemHeight = splitText.length * 3;
+        
+        // Print quantity and price on the last line of the item
+        const itemEndY = currentY + itemHeight - 3;
+        doc.text(quantity.toString(), 50, itemEndY, { align: 'center' });
+        doc.text(`PHP ${price.toLocaleString()}`, 75, itemEndY, { align: 'right' });
+        
+        currentY += itemHeight + 2;
+      });
+      
+      currentY += 2;
+      
+      // Add dashed line before totals
+      doc.setDrawColor(128, 128, 128); // Light gray color
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(5, currentY, 75, currentY);
+      doc.setLineDashPattern([], 0);
+      doc.setDrawColor(0, 0, 0); // Reset to black
+      currentY += 6;
+      
+      // Add totals
+      const subtotal = receiptData?.calculations?.subtotal || 0;
+      const discount = receiptData?.calculations?.discountAmount || 0;
+      const grossPrice = receiptData?.calculations?.grossPrice || 0;
+      const vat = grossPrice - (subtotal - discount);
+      
+      doc.setFontSize(8);
+      doc.text('Subtotal:', 5, currentY);
+      doc.text(`PHP ${subtotal.toLocaleString()}`, 75, currentY, { align: 'right' });
+      currentY += 4;
+      
+      if (discount > 0) {
+        doc.text('Discount:', 5, currentY);
+        doc.text(`PHP ${discount.toLocaleString()}`, 75, currentY, { align: 'right' });
+        currentY += 4;
+      }
+      
+      doc.text('VAT (12%):', 5, currentY);
+      doc.text(`PHP ${vat.toLocaleString()}`, 75, currentY, { align: 'right' });
+      currentY += 4;
+      
+      // Add line before total
+      doc.setDrawColor(128, 128, 128); // Light gray color
+      doc.line(5, currentY, 75, currentY);
+      doc.setDrawColor(0, 0, 0); // Reset to black
+      currentY += 4;
+      
+      // Add total
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(10);
+      doc.text('TOTAL:', 5, currentY);
+      doc.text(`PHP ${grossPrice.toLocaleString()}`, 75, currentY, { align: 'right' });
+      currentY += 8;
+      
+      // Add dashed line
+      doc.setDrawColor(128, 128, 128); // Light gray color
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(5, currentY, 75, currentY);
+      doc.setLineDashPattern([], 0);
+      doc.setDrawColor(0, 0, 0); // Reset to black
+      currentY += 6;
+      
+      // Add payment info
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(8);
+      doc.text('PAYMENT DETAILS:', 5, currentY);
+      currentY += 5;
+      
+      doc.text('Paid:', 5, currentY);
+      doc.text(`PHP ${(receiptData?.paymentData?.paid || 0).toLocaleString()}`, 75, currentY, { align: 'right' });
+      currentY += 4;
+      
+      doc.text('Change:', 5, currentY);
+      doc.text(`PHP ${(receiptData?.paymentData?.change || 0).toLocaleString()}`, 75, currentY, { align: 'right' });
+      currentY += 4;
+      
+      doc.text('Method:', 5, currentY);
+      doc.text(`${receiptData?.paymentData?.paymentType || 'Cash'}`, 75, currentY, { align: 'right' });
+      currentY += 8;
+      
+      // Add final dashed line
+      doc.setDrawColor(128, 128, 128); // Light gray color
+      doc.setLineDashPattern([1, 1], 0);
+      doc.line(5, currentY, 75, currentY);
+      doc.setLineDashPattern([], 0);
+      doc.setDrawColor(0, 0, 0); // Reset to black
+      currentY += 6;
+      
+      // Add footer
+      doc.setFont('courier', 'normal');
+      doc.setFontSize(8);
+      doc.text('Thank you for shopping!', 40, currentY, { align: 'center' });
+      currentY += 4;
+      doc.text('Please come again!', 40, currentY, { align: 'center' });
+      
+      console.log('PDF generated successfully');
+      
+      // Save the PDF with custom filename
+      const fileName = `${generateReceiptFilename()}.pdf`;
+      doc.save(fileName);
+      
+      console.log('Receipt PDF export completed successfully');
+    } catch (error) {
+      console.error('Print/PDF error:', error);
+      alert('Error generating PDF: ' + error.message);
+    }
+  };
+
+  const handleClose = () => {
+    onClose();
   };
 
   // Show loading state
